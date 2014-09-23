@@ -15,60 +15,84 @@ import csv
 import subprocess
 import tempfile
 
-max_var = 1
-student_index = 0
-constrainsts = []
-variables = dict()
-constraints = []
-reverse_variables = dict()
+class Scheduler:
+  def __init__(self):
+    self.next_var = 1
+    self.slot_day = []
+    self.slot_time = []
+    self.day_slot = dict()
+    self.variables = dict()
+    self.reverse_variables = dict()
+    self.constraints = []
+    self.num_students = 0
 
-with open(r'sched.csv', 'rb') as csvfile:
-  sched_reader = csv.reader(csvfile)
-  for row in sched_reader:
-    if row[0] == 'Schedule':
-      sched_row = row
-    elif row[0] == 'Available':
-      assert sched_row, 'The first row must start with \'Schedule\''
-      assert len(row) == len(sched_row), 'All rows must be of the same length.'
-      for i in xrange(len(row)-1):
-        var_name = 't'+str(i)
-        x_name = 'x'+str(max_var)
-        variables[var_name] = x_name
-        reverse_variables[x_name] = var_name
-        max_var += 1
-        if row[i+1] != 'y':
-          constraints.append('1 '+x_name+' = 0;')
-    else:
-      assert sched_row, 'The first two rows were not formatted correctly.'
-      assert len(row) == len(sched_row), 'All rows must be of the same length.'
-      for i in xrange(len(row)-1):
-        var_name = 's'+str(student_index)+'t'+str(i)
-        x_name = 'x'+str(max_var)
-        variables[var_name] = x_name
-        reverse_variables[x_name] = var_name
-        max_var += 1
-        if row[i+1] != 'y':
-          constraints.append('1 '+x_name+' = 0;')
-      student_index += 1
+  def ParseTimeRow(self, row):
+    assert row[0] == 'Schedule', 'The first row must start with \'Schedule\'.'
+    for i in xrange(len(row)-1):
+      slot = row[i+1]
+      m = re.match(r'(\S+)\s+(\d+):(\d+)', slot)
+      assert m, 'Slot did not match pattern'
+      day = m.group(1)
+      time = m.group(2)*60+m.group(3)
+      self.slot_day[i] = day
+      self.day_slot[day].append(i)
+      self.slot_time[i] = time
 
-# Each student only has 1 class.
-for i in xrange(student_index):
-  x_names = []
-  for t in xrange(len(sched_row)-1):
-    var_name = 's'+str(i)+'t'+str(t)
-    x_name = variables[var_name]
-    x_names.append(x_name)
-  constraints.append('1 ' + ' +1 '.join(x_names) + ' = 1;')
+  def ParseFile(self, file_name):
+    with open(file_name, 'rb') as csvfile:
+      sched_reader = csv.reader(csvfile)
+      for row in sched_reader:
+        if row[0] == 'Schedule':
+          self.ParseTimeRow(row)
+        elif row[0] == 'Available':
+          assert len(self.slot_day), 'The first row must start with \'Schedule\''
+          assert len(row)-1 == len(self.slot_day), 'All rows must be of the same length.'
+          for i in xrange(len(row)-1):
+            var_name = 't'+str(i)
+            x_name = 'x'+str(self.next_var)
+            self.variables[var_name] = x_name
+            self.reverse_variables[x_name] = var_name
+            self.next_var += 1
+            if row[i+1] != 'y':
+              self.constraints.append('1 '+x_name+' = 0;')
+        else:
+          assert len(self.slot_day), 'The first two rows were not formatted correctly.'
+          assert len(row)-1 == len(self.slot_day), 'All rows must be of the same length.'
+          for i in xrange(len(row)-1):
+            var_name = 's'+str(self.num_students)+'t'+str(i)
+            x_name = 'x'+str(self.next_var)
+            self.variables[var_name] = x_name
+            self.reverse_variables[x_name] = var_name
+            self.next_var += 1
+            if row[i+1] != 'y':
+              self.constraints.append('1 '+x_name+' = 0;')
+          self.num_students += 1
 
-# Each session only has 1 student.
-for t in xrange(len(sched_row)-1):
-  x_names = []
-  for i in xrange(student_index):
-    var_name = 's'+str(i)+'t'+str(t)
-    x_name = variables[var_name]
-    x_names.append(x_name)
-  constraints.append('1 ' + variables['t'+str(t)] + ' -1 ' +
-                     ' -1 '.join(x_names) + ' = 0;')
+  # TODO(mgeorg) Make this function set all the constraints based on local variables.  Hold full data for each slot and each student within the class.
+  def MakeConstraints(self):
+    # Each student only has 1 class.
+    # TODO(mgeorg) Add timed constraints.
+    for i in xrange(self.num_students):
+      x_names = []
+      for t in xrange(len(sched_row)-1):
+        var_name = 's'+str(i)+'t'+str(t)
+        x_name = variables[var_name]
+        x_names.append(x_name)
+      self.constraints.append('1 ' + ' +1 '.join(x_names) + ' = 1;')
+    
+    # Each session only has 1 student.
+    for t in xrange(len(sched_row)-1):
+      x_names = []
+      for i in xrange(self.num_students):
+        var_name = 's'+str(i)+'t'+str(t)
+        x_name = variables[var_name]
+        x_names.append(x_name)
+      self.constraints.append('1 ' + variables['t'+str(t)] + ' -1 ' +
+                              ' -1 '.join(x_names) + ' = 0;')
+
+s = Scheduler()
+s.ParseFile(r'sched.csv')
+s.MakeConstraints()
 
 all_products = dict()
 objective = []
