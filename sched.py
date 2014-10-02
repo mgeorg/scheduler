@@ -29,6 +29,13 @@ class Constraints:
     self.day_to_number = {'M' : 0, 'T' : 1, 'W' : 2, 'R' : 3,
                           'F' : 4, 'S' : 5, 'U' : 6}
 
+  def __str__(self):
+    return ('self.slot_name: ' + str(self.slot_name) +
+            '\nself.pupil_name: ' + str(self.pupil_name) +
+            '\nself.slot_time: ' + str(self.slot_time) +
+            '\nself.pupil_slot_preference: ' + str(self.pupil_slot_preference) +
+            '\nself.pupil_num_lessons: ' + str(self.pupil_num_lessons) +
+            '\nself.pupil_lesson_length: ' + str(self.pupil_lesson_length))
 
   def ParseFile(self, file_name):
     with open(file_name, 'rb') as csvfile:
@@ -46,14 +53,14 @@ class Constraints:
   def ParseTimeRow(self, row):
     assert row[0] == 'Schedule', 'The first row must start with \'Schedule\'.'
     self.num_slots = len(row) - 1
-    self.slot_name = ["INVALID"] * num_slots
-    self.slot_time = [(0, 0)] * num_slots
+    self.slot_name = [None] * self.num_slots
+    self.slot_time = [(0, 0)] * self.num_slots
     for i in xrange(self.num_slots):
       slot_name = row[i+1]
       self.slot_name[i] = slot_name
-      m = re.match(r'([MTWRFSU])\s+(\d+):(\d+)', slot_name)
+      m = re.match(r'^\s*([MTWRFSU])\s+(\d+):(\d+)$', slot_name)
       assert m, 'Slot "%s" did not match required pattern' % slot_name
-      day = self.day_to_number[m.group(1)], 
+      day = self.day_to_number[m.group(1)]
       time = int(m.group(2))*60+int(m.group(3))
       assert int(m.group(2)) >= 0, 'Specified hours was invalid.'
       assert int(m.group(2)) < 24, 'Specified hours was invalid.'
@@ -74,16 +81,17 @@ class Constraints:
 
   def ParsePupilRow(self, row):
     assert self.num_slots > 0, 'The first row was malformed.'
-    assert len(self.pupil_slot_preferences) > 0, 'The second row was malformed.'
+    assert len(self.pupil_slot_preference) > 0, 'The second row was malformed.'
     assert len(row)-1 == self.num_slots, 'All rows must be of the same length.'
-    assert len(row)-1 == len(self.slot_day), 'All rows must be of the same length.'
+
+    self.pupil_name.append(row[0])
     self.ParsePreferenceRow(row)
 
   def ParsePreferenceRow(self, row):
-    self.pupil_slot_preferences.add([0] * self.num_slots)
+    self.pupil_slot_preference.append([0] * self.num_slots)
     for i in xrange(self.num_slots):
       if row[i+1] in ["1", "2", "3"]:
-        self.pupil_slot_preferences[-1][i] = int(row[i+1])
+        self.pupil_slot_preference[-1][i] = int(row[i+1])
 
 
 class Scheduler:
@@ -201,12 +209,16 @@ class Scheduler:
     print ' '.join(xs)
 
 
-s = Scheduler()
-s.ParseFile(r'sched.csv')
-s.MakeConstraints()
-s.MakeObjective()
-s.MakeHeader()
-s.WriteFile()
-s.RunSolver()
-s.ParseSolverOutput()
+c = Constraints()
+c.ParseFile(r'sched.csv')
+print str(c)
+
+# s = Scheduler()
+# s.ParseFile(r'sched.csv')
+# s.MakeConstraints()
+# s.MakeObjective()
+# s.MakeHeader()
+# s.WriteFile()
+# s.RunSolver()
+# s.ParseSolverOutput()
 
