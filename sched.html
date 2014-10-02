@@ -1,0 +1,24 @@
+<html>
+<body>
+<h1>Instructions</h1>
+<h2>The first row (The time slots)</h2>
+<ol>
+<li>The first cell must be exactly "Schedule".</li>
+<li>Every other cell must be a one character code for the weekday (M, T, W, R, F, S, U) followed by a space followed by a time in 24 hour format with a colon between the hour and the minute (e.g. "17:30").</li>
+<li>The slots for each day must be in non-decreasing order.</li>
+<li>The slots for each time must be in increasing order.</li>
+</ol>
+<h2>The second row (Instructor preferences)</h2>
+<ol>
+<li>The first cell must be exactly "Available".</li>
+<li>Every other cell must be empty or filled with exactly "1", "2", or "3".</li>
+<li>Empty means that the instructor is not available at that time.</li>
+<li>"1" means that the instructor would like to teach at that time.</li>
+<li>"2" means that the instructor could teach at that time but would rather be watching monday night football or some other low priority but desirable thing that occurs AT THAT TIME (don't use this to ineffectually try to schedule a lunch or tell the system that you don't like coming in in the morning, there are better mechanisms available for specifying those preferences).</li>
+<li>"3" is the same as "2" but much more so.</li>
+</ol>
+Lunch preferences L.
+Complicated preferences A1,A1,A1,A2,A2,A2
+Lets say that you have a deal with your spouse that on Tuesdays you EITHER bring the little rugrat to pre-school OR you cook lasagna in the evening.  Clearly, you can't schedule pupils both in the morning and in the evening.  However, which is better for your other scheduling needs?  You can let the program know about your marital constraints by making Tuesday morning and Tuesday evening mutually exclusive.  Pick a letter (for example "A") which will solve this particular constraint.  Pick a number (for example "1") to designate a set of slots which if they were all empty would solve your problem.  Meaning, mark all slots that you would need free in the morning in order to bring your child to school with "A1".  Pick another number (for example "2") and fill each slot which solves your problem in a different way with "A2".  Use as many numbers as necessary.  The slots marked with "A1" do not need to be at the same time or on the same day, so make sure that you don't reuse a letter.  If a single slot becomes part of multiple constraints you can specify them all by using a comma "," to separate the values (e.g. "A2,B1,C3,D2").
+</body>
+</html>
