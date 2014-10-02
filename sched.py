@@ -133,13 +133,13 @@ class Scheduler:
     with a session which has gone past its end time.
     """
     # Each session only has 1 student.
-    for t in xrange(len(sched_row)-1):
+    for slot in xrange(self.spec.num_slots):
       x_names = []
       for pupil in xrange(self.num_pupil):
-        var_name = 'p'+str(i)+'s'+str(t)
+        var_name = 'p'+str(pupil)+'s'+str(slot)
+        x_names.append(self.x_name[var_name])
 	# TODO(mgeorg) Also include slots that if filled would spill over into
 	# this time.
-        x_names.append(self.x_name[var_name])
       self.constraints.append('1 ' + self.x_name['s'+str(t)] + ' -1 ' +
                               ' -1 '.join(x_names) + ' = 0;')
 
@@ -152,19 +152,22 @@ class Scheduler:
         var_name = 'p'+str(pupil)+'s'+str(slot)
         x_names.append(x_name[var_name])
       self.constraints.append('1 ' + ' +1 '.join(x_names) + ' = ' +
-                              self.spec.pupil_num_lessons[pupil] + ';')
+                              str(self.spec.pupil_num_lessons[pupil]) + ';')
     
 
   def MakeObjective(self):
     all_products = dict()
     objective = []
-    vars = []
-    for t in xrange(len(sched_row)-1):
-      var_name = 't'+str(t)
-      x_name = variables[var_name]
-      vars.append(x_name)
-      vars.sort()
-      product = '~' + ' ~'.join(vars)
+    x_names = []
+    # Assign a bonus for every minute the instructor comes in late.
+    # TODO(mgeorg) Determine how many minutes from the start of each day
+    # each slot is.
+    for slot in xrange(self.spec.num_slots):
+      var_name = 's'+str(slot)
+      x = self.x_name[var_name]
+      x_names.append(x)
+      x_names.sort()
+      product = '~' + ' ~'.join(x_names)
       all_products[product] = 1
       objective.append(' ' + str(-100-10*(t)) + ' ' + product)
 
