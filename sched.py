@@ -19,6 +19,7 @@ import tempfile
 class Constraints:
   def __init__(self):
     self.num_slots = 0
+    self.num_pupils = 0
     self.slot_name = []
     self.pupil_name = []
     self.slot_time = []  # Tuples of (day #, minute in day).
@@ -77,6 +78,9 @@ class Constraints:
     assert len(row)-1 == self.num_slots, 'All rows must be of the same length.'
     assert len(self.pupil_slot_preference) == 0, 'The second row must be the instructors preferences.'
 
+    self.pupil_name.append("Instructor")
+    self.pupil_num_lessons.append(None)
+    self.pupil_lesson_length.append(None)
     self.ParsePreferenceRow(row)
 
   def ParsePupilRow(self, row):
@@ -84,10 +88,14 @@ class Constraints:
     assert len(self.pupil_slot_preference) > 0, 'The second row was malformed.'
     assert len(row)-1 == self.num_slots, 'All rows must be of the same length.'
 
+    # TODO(mgeorg) Allow the user to specify multiple lessons and lesson length.
     self.pupil_name.append(row[0])
+    self.pupil_num_lessons.append(1)
+    self.pupil_lesson_length.append(30)
     self.ParsePreferenceRow(row)
 
   def ParsePreferenceRow(self, row):
+    self.num_pupils += 1
     self.pupil_slot_preference.append([0] * self.num_slots)
     for i in xrange(self.num_slots):
       if row[i+1] in ["1", "2", "3"]:
@@ -95,16 +103,12 @@ class Constraints:
 
 
 class Scheduler:
-  def __init__(self):
+  def __init__(self, spec):
+    self.spec = spec
     self.next_var = 1
-    self.slot_day = []
-    self.slot_time = []
-    self.day_slot = dict()
-    self.variables = dict()
-    self.reverse_variables = dict()
+    self.x_name = dict()
+    self.our_name = dict()
     self.constraints = []
-    self.num_students = 0
-
 
   def MakeVariable(self, var_name):
     x_name = 'x'+str(self.next_var)
@@ -113,31 +117,43 @@ class Scheduler:
     self.next_var += 1
     return x_name
 
-  # TODO(mgeorg) Make this function set all the constraints based on local variables.  Hold full data for each slot and each student within the class.
-  def MakeConstraints(self):
-    var_name = 's'+str(self.num_students)+'t'+str(i)
-    x_name = self.MakeVariable(var_name)
+  def MakeAllVariables(self):
+    for slot in xrange(self.spec.num_slots):
+      var_name = 's'+str(slot)
+      self.MakeVariable(var_name)
+    for pupil in xrange(self.num_pupils):
+      for slot in xrange(self.spec.num_slots):
+        var_name = 'p'+str(pupil)+'s'+str(slot)
+        self.MakeVariable(var_name)
 
-    # Each student only has 1 class.
-    # TODO(mgeorg) Add timed constraints.
-    for i in xrange(self.num_students):
-      x_names = []
-      for t in xrange(len(sched_row)-1):
-        var_name = 's'+str(i)+'t'+str(t)
-        x_name = variables[var_name]
-        x_names.append(x_name)
-      self.constraints.append('1 ' + ' +1 '.join(x_names) + ' = 1;')
+  def MakeSlotConstraints(self):
+    """Each slot can only be filled once.
     
+    Notice that a slot may be filled because an earlier slot was filled
+    with a session which has gone past its end time.
+    """
     # Each session only has 1 student.
     for t in xrange(len(sched_row)-1):
       x_names = []
-      for i in xrange(self.num_students):
-        var_name = 's'+str(i)+'t'+str(t)
-        x_name = variables[var_name]
-        x_names.append(x_name)
-      self.constraints.append('1 ' + variables['t'+str(t)] + ' -1 ' +
+      for pupil in xrange(self.num_pupil):
+        var_name = 'p'+str(i)+'s'+str(t)
+	# TODO(mgeorg) Also include slots that if filled would spill over into
+	# this time.
+        x_names.append(self.x_name[var_name])
+      self.constraints.append('1 ' + self.x_name['s'+str(t)] + ' -1 ' +
                               ' -1 '.join(x_names) + ' = 0;')
 
+  def MakePupilConstraints(self):
+    """Each pupil must have the correct number of lessons."""
+    # Remember that pupil 0 is the instructor.
+    for pupil in xrange(1, self.num_pupils):
+      x_names = []
+      for slot in xrange(self.spec.num_slots):
+        var_name = 'p'+str(pupil)+'s'+str(slot)
+        x_names.append(x_name[var_name])
+      self.constraints.append('1 ' + ' +1 '.join(x_names) + ' = ' +
+                              self.spec.pupil_num_lessons[pupil] + ';')
+    
 
   def MakeObjective(self):
     all_products = dict()
