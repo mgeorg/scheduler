@@ -42,17 +42,6 @@ class Constraints:
 	  # TODO(mgeorg) Add row for Lunch constraints.
 	  # TODO(mgeorg) Add a row for complicated constraints.
 	  self.ParsePupilRow(row)
-          assert len(self.slot_day), 'The first two rows were not formatted correctly.'
-          assert len(row)-1 == len(self.slot_day), 'All rows must be of the same length.'
-          for i in xrange(len(row)-1):
-            var_name = 's'+str(self.num_students)+'t'+str(i)
-            x_name = 'x'+str(self.next_var)
-            self.variables[var_name] = x_name
-            self.reverse_variables[x_name] = var_name
-            self.next_var += 1
-            if row[i+1] != 'y':
-              self.constraints.append('1 '+x_name+' = 0;')
-          self.num_students += 1
 
   def ParseTimeRow(self, row):
     assert row[0] == 'Schedule', 'The first row must start with \'Schedule\'.'
@@ -81,10 +70,20 @@ class Constraints:
     assert len(row)-1 == self.num_slots, 'All rows must be of the same length.'
     assert len(self.pupil_slot_preference) == 0, 'The second row must be the instructors preferences.'
 
+    self.ParsePreferenceRow(row)
+
+  def ParsePupilRow(self, row):
+    assert self.num_slots > 0, 'The first row was malformed.'
+    assert len(self.pupil_slot_preferences) > 0, 'The second row was malformed.'
+    assert len(row)-1 == self.num_slots, 'All rows must be of the same length.'
+    assert len(row)-1 == len(self.slot_day), 'All rows must be of the same length.'
+    self.ParsePreferenceRow(row)
+
+  def ParsePreferenceRow(self, row):
     self.pupil_slot_preferences.add([0] * self.num_slots)
     for i in xrange(self.num_slots):
       if row[i+1] in ["1", "2", "3"]:
-        self.pupil_slot_preferences[0][i] = int(row[i+1])
+        self.pupil_slot_preferences[-1][i] = int(row[i+1])
 
 
 class Scheduler:
@@ -104,9 +103,13 @@ class Scheduler:
     self.x_name[var_name] = x_name
     self.our_name[x_name] = var_name
     self.next_var += 1
+    return x_name
 
   # TODO(mgeorg) Make this function set all the constraints based on local variables.  Hold full data for each slot and each student within the class.
   def MakeConstraints(self):
+    var_name = 's'+str(self.num_students)+'t'+str(i)
+    x_name = self.MakeVariable(var_name)
+
     # Each student only has 1 class.
     # TODO(mgeorg) Add timed constraints.
     for i in xrange(self.num_students):
