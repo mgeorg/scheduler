@@ -41,12 +41,15 @@ class Constraints:
             '\nself.pupil_num_lessons: ' + str(self.pupil_num_lessons) +
             '\nself.pupil_lesson_length: ' + str(self.pupil_lesson_length) +
             '\nself.pupil_slot_occlusion: ' + str(self.pupil_slot_occlusion) +
-            '\nself.slot_pupil_occlusion: ' + str(self.slot_pupil_occlusion))
+            '\nself.slot_pupil_occlusion: ' + str(self.slot_pupil_occlusion) +
+            '\nself.day_range: ' + str(self.day_range))
 
   def ParseFile(self, file_name):
     with open(file_name, 'rb') as csvfile:
       sched_reader = csv.reader(csvfile)
       for row in sched_reader:
+        row = [x.strip() for x in row]
+        print row
         if row[0] == 'Schedule':
           self.ParseTimeRow(row)
         elif row[0] == 'Available':
@@ -87,10 +90,6 @@ class Constraints:
                                last_lesson_length)
       self.slot_time[slot] = (day, time, None)
       last_day_time = (day, time)
-    for slot
-    self.day_range = [(0, 24*60) for _ in xrange(7)]
-    
-
 
   def ParseAvailableRow(self, row):
     assert row[0] == 'Available', 'The second row must start with \'Available\'.'
@@ -145,6 +144,28 @@ class Constraints:
             self.slot_pupil_occlusion[occlud][pupil].append(slot)
           else:
             self.slot_pupil_occlusion[occlud][pupil] = [slot]
+
+  def DetermineDayStartEndTimes(self):
+    day = 0
+    start_time = None
+    end_time = None
+    for slot in xrange(self.num_slots):
+      if self.slot_time[slot][0] > day:
+        self.day_range[day] = (start_time, end_time)
+        day = self.slot_time[slot][0]
+        start_time = None
+        end_time = None
+
+      if self.pupil_slot_preference[0][slot] > 0:
+        if start_time == None:
+          start_time = self.slot_time[slot][1]
+        if self.slot_time[slot][2] == None:
+          end_time = 24*60
+        else:
+          end_time = min(self.slot_time[slot][1] + self.slot_time[slot][2],
+                         24*60)
+    if start_time != None and end_time != None:
+      self.day_range[day] = (start_time, end_time)
 
 
 class Scheduler:
