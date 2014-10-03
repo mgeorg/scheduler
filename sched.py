@@ -22,11 +22,14 @@ class Constraints:
     self.num_pupils = 0
     self.slot_name = []
     self.pupil_name = []
-    self.slot_time = []  # Tuples of (day #, minute in day).
+    self.slot_time = []  # Tuples of (day #, minute in day, length).
     self.pupil_slot_preference = []  # pupil x slot with value 1,2,3.
                                      # pupil zero is the instructor.
     self.pupil_num_lessons = []  # The number of lessons this pupil has.
     self.pupil_lesson_length = []  # The length of the lesson in minutes.
+    self.pupil_slot_occlusion = []  # pupil x slot x slot it would fill.
+    self.slot_pupil_occlusion = []  # slot x pupil x slot that if filled would occlud this slot.
+    self.day_range = [(0, 24*60) for _ in xrange(7)]
     self.day_to_number = {'M' : 0, 'T' : 1, 'W' : 2, 'R' : 3,
                           'F' : 4, 'S' : 5, 'U' : 6}
 
@@ -36,7 +39,9 @@ class Constraints:
             '\nself.slot_time: ' + str(self.slot_time) +
             '\nself.pupil_slot_preference: ' + str(self.pupil_slot_preference) +
             '\nself.pupil_num_lessons: ' + str(self.pupil_num_lessons) +
-            '\nself.pupil_lesson_length: ' + str(self.pupil_lesson_length))
+            '\nself.pupil_lesson_length: ' + str(self.pupil_lesson_length) +
+            '\nself.pupil_slot_occlusion: ' + str(self.pupil_slot_occlusion) +
+            '\nself.slot_pupil_occlusion: ' + str(self.slot_pupil_occlusion))
 
   def ParseFile(self, file_name):
     with open(file_name, 'rb') as csvfile:
@@ -45,20 +50,23 @@ class Constraints:
         if row[0] == 'Schedule':
           self.ParseTimeRow(row)
         elif row[0] == 'Available':
-	  self.ParseAvailableRow(row)
+          self.ParseAvailableRow(row)
         else:
-	  # TODO(mgeorg) Add row for Lunch constraints.
-	  # TODO(mgeorg) Add a row for complicated constraints.
-	  self.ParsePupilRow(row)
+          # TODO(mgeorg) Add row for Lunch constraints.
+          # TODO(mgeorg) Add a row for complicated constraints.
+          self.ParsePupilRow(row)
+    self.DetermineSlotOcclusion()
+    self.DetermineDayStartEndTimes()
 
   def ParseTimeRow(self, row):
     assert row[0] == 'Schedule', 'The first row must start with \'Schedule\'.'
     self.num_slots = len(row) - 1
     self.slot_name = [None] * self.num_slots
-    self.slot_time = [(0, 0)] * self.num_slots
-    for i in xrange(self.num_slots):
-      slot_name = row[i+1]
-      self.slot_name[i] = slot_name
+    self.slot_time = [(None, None, None)] * self.num_slots
+    last_day_time = None
+    for slot in xrange(self.num_slots):
+      slot_name = row[slot+1]
+      self.slot_name[slot] = slot_name
       m = re.match(r'^\s*([MTWRFSU])\s+(\d+):(\d+)$', slot_name)
       assert m, 'Slot "%s" did not match required pattern' % slot_name
       day = self.day_to_number[m.group(1)]
@@ -69,8 +77,20 @@ class Constraints:
       assert int(m.group(3)) < 60, 'Specified minutes was invalid.'
       assert time >= 0, 'Specified time was negative.'
       assert time < 24*60, 'Specified time was larger than a day'
-      # TODO(mgeorg) check non-decreasing day and increasing time.
-      self.slot_time[i] = (day, time)
+      if last_day_time:
+        last_lesson_length = (day * 24 * 60 + time) - (
+            last_day_time[0] * 24 * 60 + last_day_time[1])
+        assert last_lesson_length > 0, (
+                'The time slots are not in increasing order.')
+        self.slot_time[slot-1] = (self.slot_time[slot-1][0],
+                               self.slot_time[slot-1][1],
+                               last_lesson_length)
+      self.slot_time[slot] = (day, time, None)
+      last_day_time = (day, time)
+    for slot
+    self.day_range = [(0, 24*60) for _ in xrange(7)]
+    
+
 
   def ParseAvailableRow(self, row):
     assert row[0] == 'Available', 'The second row must start with \'Available\'.'
@@ -101,6 +121,31 @@ class Constraints:
       if row[i+1] in ["1", "2", "3"]:
         self.pupil_slot_preference[-1][i] = int(row[i+1])
 
+  def DetermineSlotOcclusion(self):
+    self.pupil_slot_occlusion = [[None] * self.num_slots for _ in xrange(self.num_pupils)]
+    self.pupil_slot_occlusion[0] = None
+    for pupil in xrange(1, self.num_pupils):
+      for slot in xrange(self.num_slots):
+        lesson_length_left = self.pupil_lesson_length[pupil]
+        offset = 0
+        slots = []
+        while lesson_length_left > 0:
+          slots.append(slot + offset)
+          if self.slot_time[slot + offset][2]:
+            lesson_length_left -= self.slot_time[slot + offset][2]
+          else:
+            lesson_length_left = 0
+          offset += 1
+        self.pupil_slot_occlusion[pupil][slot] = slots
+    self.slot_pupil_occlusion = [[None] * self.num_pupils for _ in xrange(self.num_slots)]
+    for pupil in xrange(1, self.num_pupils):
+      for slot in xrange(self.num_slots):
+        for occlud in self.pupil_slot_occlusion[pupil][slot]:
+          if self.slot_pupil_occlusion[occlud][pupil]:
+            self.slot_pupil_occlusion[occlud][pupil].append(slot)
+          else:
+            self.slot_pupil_occlusion[occlud][pupil] = [slot]
+
 
 class Scheduler:
   def __init__(self, spec):
@@ -109,6 +154,20 @@ class Scheduler:
     self.x_name = dict()
     self.our_name = dict()
     self.constraints = []
+    self.objective = []
+
+  def __str__(self):
+    return ('self.x_name: ' + str(self.x_name) +
+            '\nself.our_name: ' + str(self.our_name) +
+            '\nself.constraints:\n' + '\n'.join(self.constraints) +
+            '\n\n\nself.objective:\n' + '\n'.join(self.objective))
+
+  def Run(self):
+    self.MakeAllVariables()
+    self.MakeAvailabilityConstraints()
+    self.MakeSlotConstraints()
+    self.MakePupilConstraints()
+    # self.MakeObjective()
 
   def MakeVariable(self, var_name):
     x_name = 'x'+str(self.next_var)
@@ -121,10 +180,18 @@ class Scheduler:
     for slot in xrange(self.spec.num_slots):
       var_name = 's'+str(slot)
       self.MakeVariable(var_name)
-    for pupil in xrange(self.num_pupils):
+    for pupil in xrange(self.spec.num_pupils):
       for slot in xrange(self.spec.num_slots):
         var_name = 'p'+str(pupil)+'s'+str(slot)
         self.MakeVariable(var_name)
+
+  def MakeAvailabilityConstraints(self):
+    # Each session only has 1 student.
+    for slot in xrange(self.spec.num_slots):
+      for pupil in xrange(self.spec.num_pupils):
+        if self.spec.pupil_slot_preference[pupil][slot] <= 0:
+          var_name = 'p'+str(pupil)+'s'+str(slot)
+          self.constraints.append('1 ' + self.x_name[var_name] + ' = 0;')
 
   def MakeSlotConstraints(self):
     """Each slot can only be filled once.
@@ -135,29 +202,28 @@ class Scheduler:
     # Each session only has 1 student.
     for slot in xrange(self.spec.num_slots):
       x_names = []
-      for pupil in xrange(self.num_pupil):
-        var_name = 'p'+str(pupil)+'s'+str(slot)
-        x_names.append(self.x_name[var_name])
-	# TODO(mgeorg) Also include slots that if filled would spill over into
-	# this time.
-      self.constraints.append('1 ' + self.x_name['s'+str(t)] + ' -1 ' +
+      for pupil in xrange(1, self.spec.num_pupils):
+        for pupil_slot in self.spec.slot_pupil_occlusion[slot][pupil]:
+          # Consider all slots that would occlud this slot if we scheduled them.
+          var_name = 'p'+str(pupil)+'s'+str(pupil_slot)
+          x_names.append(self.x_name[var_name])
+      self.constraints.append('1 ' + self.x_name['s'+str(slot)] + ' -1 ' +
                               ' -1 '.join(x_names) + ' = 0;')
+      self.constraints.append('1 ' + self.x_name['p0s'+str(slot)] + ' -1 ' +
+                              self.x_name['s'+str(slot)] + ' >= 0;')
 
   def MakePupilConstraints(self):
-    """Each pupil must have the correct number of lessons."""
+    """Each pupil must have the correct number of sessions."""
     # Remember that pupil 0 is the instructor.
-    for pupil in xrange(1, self.num_pupils):
+    for pupil in xrange(1, self.spec.num_pupils):
       x_names = []
       for slot in xrange(self.spec.num_slots):
         var_name = 'p'+str(pupil)+'s'+str(slot)
-        x_names.append(x_name[var_name])
+        x_names.append(self.x_name[var_name])
       self.constraints.append('1 ' + ' +1 '.join(x_names) + ' = ' +
                               str(self.spec.pupil_num_lessons[pupil]) + ';')
-    
 
   def MakeObjective(self):
-    all_products = dict()
-    objective = []
     x_names = []
     # Assign a bonus for every minute the instructor comes in late.
     # TODO(mgeorg) Determine how many minutes from the start of each day
@@ -231,10 +297,13 @@ class Scheduler:
 c = Constraints()
 c.ParseFile(r'sched.csv')
 print str(c)
+print "###############################"
+print "###############################"
+print "###############################"
 
-# s = Scheduler()
-# s.ParseFile(r'sched.csv')
-# s.MakeConstraints()
+s = Scheduler(c)
+s.Run()
+print str(s)
 # s.MakeObjective()
 # s.MakeHeader()
 # s.WriteFile()

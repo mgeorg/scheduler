@@ -9,8 +9,8 @@
 <ol>
 <li>The first cell must be exactly "Schedule".</li>
 <li>Every other cell must be a one character code for the weekday (M, T, W, R, F, S, U) followed by a space followed by a time in 24 hour format with a colon between the hour and the minute (e.g. "17:30").</li>
-<li>The slots for each day must be in non-decreasing order.</li>
-<li>The slots for each time must be in increasing order.</li>
+<li>Each time slot must be after the last time slot.</li>
+<li>Each time slot extends until the next time slot.  This means that you MUST create at least one time slot at the end of each day which you set yourself as unavailable for (otherwise a 1 hour lessen may be scheduled in a 30 min slot).</li>
 </ol>
 <h2>The second row (Instructor preferences)</h2>
 <ol>
