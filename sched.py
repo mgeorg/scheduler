@@ -51,7 +51,6 @@ class Constraints:
       sched_reader = csv.reader(csvfile)
       for row in sched_reader:
         row = [x.strip() for x in row]
-        print row
         if row[0] == 'Schedule':
           self.ParseTimeRow(row)
         elif row[0] == 'Available':
@@ -113,6 +112,9 @@ class Constraints:
     self.pupil_name.append(row[0])
     self.pupil_num_lessons.append(1)
     self.pupil_lesson_length.append(30)
+    if len(self.pupil_lesson_length) == 5:
+      # TODO(mgeorg) This if statement is here just for testing.
+      self.pupil_lesson_length.append(60)
     self.ParsePreferenceRow(row)
 
   def ParsePreferenceRow(self, row):
@@ -440,9 +442,4 @@ s = Scheduler(c)
 s.Prepare()
 print str(s)
 s.Solve()
-# s.MakeObjective()
-# s.MakeHeader()
-# s.WriteFile()
-# s.RunSolver()
-# s.ParseSolverOutput()
 
