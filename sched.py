@@ -422,7 +422,7 @@ class Scheduler:
         print self.spec.slot_name[slot] + ' ' + self.spec.pupil_name[pupil]
       else:
         if self.busy[slot]:
-          print self.spec.slot_name[slot] + ' ---'
+          print self.spec.slot_name[slot] + ' ---Lesson Ongoing---'
         else:
           if self.spec.pupil_slot_preference[0][slot] > 0:
             print self.spec.slot_name[slot]
