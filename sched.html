@@ -20,7 +20,17 @@
 <li>"1" means that the instructor would like to teach at that time.</li>
 <li>"2" means that the instructor could teach at that time but would rather be watching monday night football or some other low priority but desirable thing that occurs AT THAT TIME (don't use this to ineffectually try to schedule a lunch or tell the system that you don't like coming in in the morning, there are better mechanisms available for specifying those preferences).</li>
 <li>"3" is the same as "2" but much more so.</li>
+<li>If you have pupils with longer lessons (1 hour session when the slots are 30 min long) then the program will only schedule the pupil at 10:00 if you are available at both 10:00 and 10:30.</li>
 </ol>
+<h2>Additional rows (Pupil preferences)</h2>
+<ol>
+<li>The first cell must be the pupil's name such as "Jane Doe".  Any utf-8 encoded string is valid (Chinese characters, arabic, and Klingon are all valid).</li>
+<li>All additional cells specify preference with "1" being ideal, "2" being a second choice slot, and "3" being a third choice slot.  Penalties for scheduling on a less ideal slot can be specified (and are generally much less important than instructor preferences)</li>
+<li>For pupils with longer lessons (1 hour session when slots are 30 min).  Be aware that the preference is for STARTING a session at the specified time.  If you specify "1" at 11:00 and "" (meaning don't schedule) at 11:30 then the program may schedule a lesson from 11:00-12:00 but not 11:30-12:30.  This is slightly different than how instructor preferences are specified (instructor preferences are always about exactly only the specified slot).</li>
+<li>Each pupil may specify as many "" (empty), "1", "2", and "3" cells as they want.  When setting schedules, you may or may not expose the full range of preferences to the pupils and you may or may not restrict the number of "2" and "3" you allow them to specify.  It's entirely your choice, the program doesn't care at all.  However, note that a student who specifies "3" for each slot might as well have specified "1" for each slot.</li>
+</ol>
+
+
 Lunch preferences L.
 Complicated preferences A1,A1,A1,A2,A2,A2
 Lets say that you have a deal with your spouse that on Tuesdays you EITHER bring the little rugrat to pre-school OR you cook lasagna in the evening.  Clearly, you can't schedule pupils both in the morning and in the evening.  However, which is better for your other scheduling needs?  You can let the program know about your marital constraints by making Tuesday morning and Tuesday evening mutually exclusive.  Pick a letter (for example "A") which will solve this particular constraint.  Pick a number (for example "1") to designate a set of slots which if they were all empty would solve your problem.  Meaning, mark all slots that you would need free in the morning in order to bring your child to school with "A1".  Pick another number (for example "2") and fill each slot which solves your problem in a different way with "A2".  Use as many numbers as necessary.  The slots marked with "A1" do not need to be at the same time or on the same day, so make sure that you don't reuse a letter.  If a single slot becomes part of multiple constraints you can specify them all by using a comma "," to separate the values (e.g. "A2,B1,C3,D2").

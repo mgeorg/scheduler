@@ -159,11 +159,15 @@ class Constraints:
       if self.pupil_slot_preference[0][slot] > 0:
         if start_time == None:
           start_time = self.slot_time[slot][1]
-        if self.slot_time[slot][2] == None:
-          end_time = 24*60
-        else:
-          end_time = min(self.slot_time[slot][1] + self.slot_time[slot][2],
-                         24*60)
+        assert self.slot_time[slot][2] != None, (
+            'The instructor is available for the last session of day ' +
+            'with index %d, this is not allowed (add an extra session ' +
+            'after the last of the day).') % day
+        end_time = self.slot_time[slot][1] + self.slot_time[slot][2]
+        assert end_time <= 24*60, (
+            'The instructor is available for the last session of day ' +
+            'with index %d, this is not allowed (add an extra session ' +
+            'after the last of the day).') % day
     if start_time != None and end_time != None:
       self.day_range[day] = (start_time, end_time)
 
@@ -247,8 +251,6 @@ class Scheduler:
   def MakeObjective(self):
     x_names = []
     # Assign a bonus for every minute the instructor comes in late.
-    # TODO(mgeorg) Determine how many minutes from the start of each day
-    # each slot is.
     for slot in xrange(self.spec.num_slots):
       var_name = 's'+str(slot)
       x = self.x_name[var_name]
