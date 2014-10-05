@@ -56,7 +56,7 @@ class Constraints:
         row = [x.strip() for x in row]
         if row[0] == 'Schedule':
           self.ParseTimeRow(row)
-        elif row[0] == 'Available':
+        elif row[0] == 'Instructor1':
           self.ParseAvailableRow(row)
         else:
           # TODO(mgeorg) Add row for Lunch constraints.
@@ -97,7 +97,7 @@ class Constraints:
       last_day_time = (day, time)
 
   def ParseAvailableRow(self, row):
-    assert row[0] == 'Available', 'The second row must start with \'Available\'.'
+    assert row[0] == 'Instructor1', 'The second row must start with \'Instructor1\'.'
     assert self.num_slots > 0, 'The first row was malformed.'
     assert len(row)-1 == self.num_slots, 'All rows must be of the same length.'
     assert len(self.pupil_slot_preference) == 0, 'The second row must be the instructors preferences.'
@@ -194,7 +194,7 @@ class Scheduler:
     self.our_name = dict()
     self.constraints = []
     self.objective = []
-    self.arrive_late_bonus = 6
+    self.arrive_late_bonus = 8
     self.leave_early_bonus = 10
     self.day_off_bonus = 10000
     self.all_products = dict()
@@ -202,8 +202,8 @@ class Scheduler:
     self.preference_penalty = [0, 0, 5, 10, 20, 40]
     self.instructor_preference_penalty = [
         3*x+1 for x in self.preference_penalty]
-    self.break_penalty = {60: 1, 120: 1, 180: 1, 240: 2, 300: 3, 360: 5,
-                          420: 8, 480: 13, 540: 21, 600: 34, 660: 55}
+    self.no_break_penalty = {60: 1, 120: 1, 180: 1, 240: 2, 300: 3, 360: 5,
+                             420: 8, 480: 13, 540: 21, 600: 34, 660: 55}
 
   def __str__(self):
     return ('self.x_name: ' + str(self.x_name) +
@@ -219,6 +219,7 @@ class Scheduler:
     self.MakePreferencePenalty()
     self.MakeArriveLateBonus()
     self.MakeLeaveEarlyBonus()
+    self.MakeNoBreakPenalty()
     self.MakeDayOffBonus()
 
   def MakeVariable(self, var_name):
@@ -229,9 +230,6 @@ class Scheduler:
     return x_name
 
   def MakeAllVariables(self):
-    for slot in xrange(self.spec.num_slots):
-      var_name = 's'+str(slot)
-      self.MakeVariable(var_name)
     for pupil in xrange(self.spec.num_pupils):
       for slot in xrange(self.spec.num_slots):
         var_name = 'p'+str(pupil)+'s'+str(slot)
@@ -259,10 +257,8 @@ class Scheduler:
           # Consider all slots that would occlud this slot if we scheduled them.
           var_name = 'p'+str(pupil)+'s'+str(pupil_slot)
           x_names.append(self.x_name[var_name])
-      self.constraints.append('1 ' + self.x_name['s'+str(slot)] + ' -1 ' +
-                              ' -1 '.join(x_names) + ' = 0;')
       self.constraints.append('1 ' + self.x_name['p0s'+str(slot)] + ' -1 ' +
-                              self.x_name['s'+str(slot)] + ' >= 0;')
+                              ' -1 '.join(x_names) + ' >= 0;')
 
   def MakePupilConstraints(self):
     """Each pupil must have the correct number of sessions."""
@@ -300,10 +296,10 @@ class Scheduler:
         if self.spec.slot_time[slot].time >= self.spec.day_range[day][1]:
           # After end time.
           continue
-        var_name = 's'+str(slot)
+        var_name = 'p0s'+str(slot)
         x = self.x_name[var_name]
         x_names.append(x)
-        x_names.sort()
+        x_names.sort(key=lambda x: int(x[1:]))
         product = '~' + ' ~'.join(x_names)
         self.all_products[product] = 1
         self.max_product_size = max(self.max_product_size, len(x_names))
@@ -324,10 +320,10 @@ class Scheduler:
         if self.spec.slot_time[slot].time >= self.spec.day_range[day][1]:
           # After end time.
           continue
-        var_name = 's'+str(slot)
+        var_name = 'p0s'+str(slot)
         x = self.x_name[var_name]
         x_names.append(x)
-        x_names.sort()
+        x_names.sort(key=lambda x: int(x[1:]))
         product = '~' + ' ~'.join(x_names)
         self.all_products[product] = 1
         self.max_product_size = max(self.max_product_size, len(x_names))
@@ -339,13 +335,33 @@ class Scheduler:
     # Assign a penalty for every minute the instructor doesn't have a
     # break past some allowable threshold.
     for day in xrange(7):
-      x_names = []
-      for slot_in_day_index in xrange(len(self.spec.slots_by_day[day])):
-        slot = self.spec.slots_by_day[day][slot_index]
-        start_time = self.spec.slot_time.time
-        for slot_in_day_offset in xrange(len(self.spec.slots_by_day[day]) -
-                                         slot_in_day_index):
-          pass
+      for no_break_penalty_tuple in sorted(self.no_break_penalty.items()):
+        for slot_in_day_index in xrange(len(self.spec.slots_by_day[day])):
+          slot = self.spec.slots_by_day[day][slot_in_day_index]
+          start_time = self.spec.slot_time[slot].time
+          var_name = 'p0s'+str(slot)
+          x_names = [self.x_name[var_name]]
+          for end_slot in self.spec.slots_by_day[day][(slot_in_day_index+1):]:
+            var_name = 'p0s'+str(end_slot)
+            x = self.x_name[var_name]
+            x_names.append(x)
+            if (self.spec.slot_time[end_slot].time +
+                self.spec.slot_time[end_slot].length -
+                start_time > no_break_penalty_tuple[0]):
+              # Notice that we use the entire length of the slot not just the
+              # time in excess of the break penalty.  This is because for longer
+              # runs of no break it gives the correct value.  It only gives
+              # the incorrect value for the minimal no break run.  People
+              # should use aligned slots anyway.
+              penalty = (no_break_penalty_tuple[1] *
+                         self.spec.slot_time[end_slot].length)
+              x_names.sort(key=lambda x: int(x[1:]))
+              product = ' '.join(x_names)
+              self.all_products[product] = 1
+              self.max_product_size = max(self.max_product_size, len(x_names))
+              self.objective.append('+' + str(penalty) + ' ' + product)
+              break
+
 
   def MakeDayOffBonus(self):
     """Assign a bonus for missing the entire day."""
@@ -364,11 +380,11 @@ class Scheduler:
         
       x_names = []
       for slot in self.spec.slots_by_day[day]:
-        var_name = 's'+str(slot)
+        var_name = 'p0s'+str(slot)
         x = self.x_name[var_name]
         x_names.append(x)
 
-      x_names.sort()
+      x_names.sort(key=lambda x: int(x[1:]))
       product = '~' + ' ~'.join(x_names)
       self.all_products[product] = 1
       self.max_product_size = max(self.max_product_size, len(x_names))
@@ -391,7 +407,8 @@ class Scheduler:
 
   def Solve(self):
     self.WriteFile()
-    p = subprocess.Popen(['clasp', self.opb_file], stdout=subprocess.PIPE,
+    p = subprocess.Popen(['clasp', '--time-limit=10', self.opb_file],
+                         stdout=subprocess.PIPE,
                          stderr=subprocess.PIPE, stdin=subprocess.PIPE)
     (self.solver_output, unused_stderr) = p.communicate()
     print self.solver_output
@@ -401,7 +418,7 @@ class Scheduler:
   def ParseSolverOutput(self):
     x_names = []
     for line in self.solver_output.splitlines():
-      m = re.match('v(?:\s+-?x\d+)*', line)
+      m = re.match('v(?:\s+-?x\d+)+', line)
       if m:
         curr_vars = line.split(' ')
         assert curr_vars[0] == 'v'
@@ -430,10 +447,8 @@ class Scheduler:
         if pupil > 0:
           self.schedule[slot] = pupil
           print self.spec.pupil_name[pupil] + ' ' + self.spec.slot_name[slot]
-      m = re.match('s(\d+)', var_name)
-      if m:
-        slot = int(m.group(1))
-        self.busy[slot] = True
+        else:
+          self.busy[slot] = True
     print '\n\n'
     for slot in xrange(self.spec.num_slots):
       pupil = self.schedule[slot]
