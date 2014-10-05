@@ -192,6 +192,7 @@ class Scheduler:
     self.next_var = 1
     self.x_name = dict()
     self.our_name = dict()
+    self.available = dict()
     self.constraints = []
     self.objective = []
     self.arrive_late_bonus = 8
@@ -212,8 +213,8 @@ class Scheduler:
             '\n\n\nself.objective:\n' + '\n'.join(self.objective))
 
   def Prepare(self):
+    self.MakeAvailabilityDict()
     self.MakeAllVariables()
-    self.MakeAvailabilityConstraints()
     self.MakeSlotConstraints()
     self.MakePupilConstraints()
     self.MakePreferencePenalty()
@@ -233,15 +234,19 @@ class Scheduler:
     for pupil in xrange(self.spec.num_pupils):
       for slot in xrange(self.spec.num_slots):
         var_name = 'p'+str(pupil)+'s'+str(slot)
-        self.MakeVariable(var_name)
+        if self.available[var_name]:
+          self.MakeVariable(var_name)
 
-  def MakeAvailabilityConstraints(self):
+  def MakeAvailabilityDict(self):
     # Each session only has 1 student.
     for slot in xrange(self.spec.num_slots):
       for pupil in xrange(self.spec.num_pupils):
-        if self.spec.pupil_slot_preference[pupil][slot] <= 0:
-          var_name = 'p'+str(pupil)+'s'+str(slot)
-          self.constraints.append('1 ' + self.x_name[var_name] + ' = 0;')
+        var_name = 'p'+str(pupil)+'s'+str(slot)
+        if pupil == 0:
+          self.available[var_name] = True
+        else:
+          self.available[var_name] = (
+              self.spec.pupil_slot_preference[pupil][slot] > 0)
 
   def MakeSlotConstraints(self):
     """Each slot can only be filled once.
@@ -249,16 +254,18 @@ class Scheduler:
     Notice that a slot may be filled because an earlier slot was filled
     with a session which has gone past its end time.
     """
-    # Each session only has 1 student.
+    # Each session needs an instructor and only has 1 student.
     for slot in xrange(self.spec.num_slots):
       x_names = []
       for pupil in xrange(1, self.spec.num_pupils):
         for pupil_slot in self.spec.slot_pupil_occlusion[slot][pupil]:
           # Consider all slots that would occlud this slot if we scheduled them.
           var_name = 'p'+str(pupil)+'s'+str(pupil_slot)
-          x_names.append(self.x_name[var_name])
-      self.constraints.append('1 ' + self.x_name['p0s'+str(slot)] + ' -1 ' +
-                              ' -1 '.join(x_names) + ' >= 0;')
+          if self.available[var_name]:
+            x_names.append(self.x_name[var_name])
+      if self.available['p0s'+str(slot)]:
+        self.constraints.append('1 ' + self.x_name['p0s'+str(slot)] + ' -1 ' +
+                                ' -1 '.join(x_names) + ' >= 0;')
 
   def MakePupilConstraints(self):
     """Each pupil must have the correct number of sessions."""
@@ -267,7 +274,8 @@ class Scheduler:
       x_names = []
       for slot in xrange(self.spec.num_slots):
         var_name = 'p'+str(pupil)+'s'+str(slot)
-        x_names.append(self.x_name[var_name])
+        if self.available[var_name]:
+          x_names.append(self.x_name[var_name])
       self.constraints.append('1 ' + ' +1 '.join(x_names) + ' = ' +
                               str(self.spec.pupil_num_lessons[pupil]) + ';')
 
@@ -276,6 +284,8 @@ class Scheduler:
       for slot in xrange(self.spec.num_slots):
         if self.spec.pupil_slot_preference[pupil][slot] > 1:
           var_name = 'p'+str(pupil)+'s'+str(slot)
+          if not self.available[var_name]:
+            continue
           x = self.x_name[var_name]
           if pupil == 0:
             penalty = self.instructor_preference_penalty[
@@ -298,8 +308,9 @@ class Scheduler:
           continue
         var_name = 'p0s'+str(slot)
         x = self.x_name[var_name]
-        x_names.append(x)
-        x_names.sort(key=lambda x: int(x[1:]))
+        if self.available[var_name]:
+          x_names.append(x)
+          x_names.sort(key=lambda x: int(x[1:]))
         product = '~' + ' ~'.join(x_names)
         self.all_products[product] = 1
         self.max_product_size = max(self.max_product_size, len(x_names))
@@ -322,8 +333,9 @@ class Scheduler:
           continue
         var_name = 'p0s'+str(slot)
         x = self.x_name[var_name]
-        x_names.append(x)
-        x_names.sort(key=lambda x: int(x[1:]))
+        if self.available[var_name]:
+          x_names.append(x)
+          x_names.sort(key=lambda x: int(x[1:]))
         product = '~' + ' ~'.join(x_names)
         self.all_products[product] = 1
         self.max_product_size = max(self.max_product_size, len(x_names))
@@ -340,9 +352,13 @@ class Scheduler:
           slot = self.spec.slots_by_day[day][slot_in_day_index]
           start_time = self.spec.slot_time[slot].time
           var_name = 'p0s'+str(slot)
+          if not self.available[var_name]:
+            continue
           x_names = [self.x_name[var_name]]
           for end_slot in self.spec.slots_by_day[day][(slot_in_day_index+1):]:
             var_name = 'p0s'+str(end_slot)
+            if not self.available[var_name]:
+              break
             x = self.x_name[var_name]
             x_names.append(x)
             if (self.spec.slot_time[end_slot].time +
@@ -407,7 +423,7 @@ class Scheduler:
 
   def Solve(self):
     self.WriteFile()
-    p = subprocess.Popen(['clasp', '--time-limit=10', self.opb_file],
+    p = subprocess.Popen(['clasp', '--time-limit=0', self.opb_file],
                          stdout=subprocess.PIPE,
                          stderr=subprocess.PIPE, stdin=subprocess.PIPE)
     (self.solver_output, unused_stderr) = p.communicate()

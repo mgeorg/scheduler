@@ -24,7 +24,7 @@ with open('sched.csv', 'wb') as csvfile:
     pupil_available = ['P'+str(pupil)]
     for slot in xrange(len(slot_times)-1):
       r = random.random()
-      if r < .5:
+      if r < .9:
         val = ''
       elif r < .95:
         val = '1'
