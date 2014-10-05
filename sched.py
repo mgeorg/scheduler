@@ -9,12 +9,15 @@
 # You may not use this code.  You do not have a license to use this
 # code.
 
-import re
-import os
+import collections
 import csv
+import os
+import re
 import subprocess
 import tempfile
 
+
+SlotTimeSpec = collections.namedtuple('SlotTimeSpec', 'day time length')
 
 class Constraints:
   def __init__(self):
@@ -66,7 +69,7 @@ class Constraints:
     assert row[0] == 'Schedule', 'The first row must start with \'Schedule\'.'
     self.num_slots = len(row) - 1
     self.slot_name = [None] * self.num_slots
-    self.slot_time = [(None, None, None)] * self.num_slots
+    self.slot_time = [None] * self.num_slots
     last_day_time = None
     for slot in xrange(self.num_slots):
       slot_name = row[slot+1]
@@ -86,10 +89,11 @@ class Constraints:
             last_day_time[0] * 24 * 60 + last_day_time[1])
         assert last_lesson_length > 0, (
                 'The time slots are not in increasing order.')
-        self.slot_time[slot-1] = (self.slot_time[slot-1][0],
-                               self.slot_time[slot-1][1],
-                               last_lesson_length)
-      self.slot_time[slot] = (day, time, None)
+        self.slot_time[slot-1] = SlotTimeSpec(
+            self.slot_time[slot-1].day,
+            self.slot_time[slot-1].time,
+            last_lesson_length)
+      self.slot_time[slot] = SlotTimeSpec(day, time, None)
       last_day_time = (day, time)
 
   def ParseAvailableRow(self, row):
@@ -134,8 +138,8 @@ class Constraints:
         slots = []
         while lesson_length_left > 0:
           slots.append(slot + offset)
-          if self.slot_time[slot + offset][2]:
-            lesson_length_left -= self.slot_time[slot + offset][2]
+          if self.slot_time[slot + offset].length:
+            lesson_length_left -= self.slot_time[slot + offset].length
           else:
             lesson_length_left = 0
           offset += 1
@@ -159,7 +163,7 @@ class Constraints:
     """
     for day in xrange(7):
       self.slots_by_day[day] = [
-          i for i in xrange(self.num_slots) if self.slot_time[i][0] == day]
+          i for i in xrange(self.num_slots) if self.slot_time[i].day == day]
       while (self.slots_by_day[day] and
              self.pupil_slot_preference[0][self.slots_by_day[day][0]] <= 0):
         # The instructor isn't available for the first slot.
@@ -170,15 +174,15 @@ class Constraints:
         del self.slots_by_day[day][-1]
       if not self.slots_by_day[day]:
         continue
-      start_time = self.slot_time[self.slots_by_day[day][0]][1]
+      start_time = self.slot_time[self.slots_by_day[day][0]].time
       end_slot = self.slots_by_day[day][-1]
-      assert (self.slot_time[end_slot][2] == None or
-              self.slot_time[end_slot][1] + 
-              self.slot_time[end_slot][2] <= 24*60), (
+      assert (self.slot_time[end_slot].length == None or
+              self.slot_time[end_slot].time + 
+              self.slot_time[end_slot].length <= 24*60), (
               'The instructor is available for the last session of day ' +
               'with index %d, this is not allowed (add an extra session ' +
               'after the last of the day).') % day
-      end_time = self.slot_time[end_slot][1] + self.slot_time[end_slot][2]
+      end_time = self.slot_time[end_slot].time + self.slot_time[end_slot].length
       self.day_range[day] = (start_time, end_time)
 
 
@@ -196,7 +200,10 @@ class Scheduler:
     self.all_products = dict()
     self.max_product_size = 0
     self.preference_penalty = [0, 0, 5, 10, 20, 40]
-    self.instructor_preference_penalty = [3*x+1 for x in self.preference_penalty]
+    self.instructor_preference_penalty = [
+        3*x+1 for x in self.preference_penalty]
+    self.break_penalty = {60: 1, 120: 1, 180: 1, 240: 2, 300: 3, 360: 5,
+                          420: 8, 480: 13, 540: 21, 600: 34, 660: 55}
 
   def __str__(self):
     return ('self.x_name: ' + str(self.x_name) +
@@ -287,10 +294,10 @@ class Scheduler:
     for day in xrange(7):
       x_names = []
       for slot in self.spec.slots_by_day[day]:
-        if self.spec.slot_time[slot][1] < self.spec.day_range[day][0]:
+        if self.spec.slot_time[slot].time < self.spec.day_range[day][0]:
           # Before end time.
           continue
-        if self.spec.slot_time[slot][1] >= self.spec.day_range[day][1]:
+        if self.spec.slot_time[slot].time >= self.spec.day_range[day][1]:
           # After end time.
           continue
         var_name = 's'+str(slot)
@@ -301,7 +308,7 @@ class Scheduler:
         self.all_products[product] = 1
         self.max_product_size = max(self.max_product_size, len(x_names))
         # This bonus is only the additional bonus from the latest slot.
-        bonus = self.arrive_late_bonus * self.spec.slot_time[slot][2]
+        bonus = self.arrive_late_bonus * self.spec.slot_time[slot].length
         self.objective.append(str(-bonus) + ' ' + product)
 
   def MakeLeaveEarlyBonus(self):
@@ -311,10 +318,10 @@ class Scheduler:
     for day in xrange(7):
       x_names = []
       for slot in reversed(self.spec.slots_by_day[day]):
-        if self.spec.slot_time[slot][1] < self.spec.day_range[day][0]:
+        if self.spec.slot_time[slot].time < self.spec.day_range[day][0]:
           # Before end time.
           continue
-        if self.spec.slot_time[slot][1] >= self.spec.day_range[day][1]:
+        if self.spec.slot_time[slot].time >= self.spec.day_range[day][1]:
           # After end time.
           continue
         var_name = 's'+str(slot)
@@ -325,8 +332,20 @@ class Scheduler:
         self.all_products[product] = 1
         self.max_product_size = max(self.max_product_size, len(x_names))
         # This bonus is only the additional bonus from the latest slot.
-        bonus = self.leave_early_bonus * self.spec.slot_time[slot][2]
+        bonus = self.leave_early_bonus * self.spec.slot_time[slot].length
         self.objective.append(str(-bonus) + ' ' + product)
+
+  def MakeNoBreakPenalty(self):
+    # Assign a penalty for every minute the instructor doesn't have a
+    # break past some allowable threshold.
+    for day in xrange(7):
+      x_names = []
+      for slot_in_day_index in xrange(len(self.spec.slots_by_day[day])):
+        slot = self.spec.slots_by_day[day][slot_index]
+        start_time = self.spec.slot_time.time
+        for slot_in_day_offset in xrange(len(self.spec.slots_by_day[day]) -
+                                         slot_in_day_index):
+          pass
 
   def MakeDayOffBonus(self):
     """Assign a bonus for missing the entire day."""
