@@ -3,7 +3,8 @@ import random
 
 with open('sched.csv', 'wb') as csvfile:
   csvwriter = csv.writer(csvfile, delimiter=',',
-                         quotechar='\"', quoting=csv.QUOTE_MINIMAL)
+                         quotechar='\"', quoting=csv.QUOTE_MINIMAL,
+                         lineterminator='\n')
   slot_times = ['Schedule']
   i1_available = ['Instructor1']
   i1_restriction = ['Instructor1 Restrictions']
