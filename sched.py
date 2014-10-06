@@ -143,14 +143,16 @@ class Constraints:
       row[slot+1].strip()
       if not row[slot+1]:
         continue
-      m = re.match(r'([^_]+)_(\d+)', row[slot+1])
-      assert m, 'Restrictions cell does not have proper format: ' + row[slot]
-      if m.group(1) in self.restrictions:
-        self.restrictions[m.group(1)].append(slot)
-        assert self.restrictions_num[m.group(1)] == int(m.group(2)), 'Number of slots to leave empty does not match'
-      else:
-        self.restrictions[m.group(1)] = [slot]
-        self.restrictions_num[m.group(1)] = int(m.group(2))
+      for restriction_spec in row[slot+1].split(','):
+        restriction_spec.strip()
+        m = re.match(r'^([^_]+)_(\d+)$', restriction_spec)
+        assert m, 'Restrictions cell does not have proper format: ' + restriction_spec
+        if m.group(1) in self.restrictions:
+          self.restrictions[m.group(1)].append(slot)
+          assert self.restrictions_num[m.group(1)] == int(m.group(2)), 'Number of slots to leave empty does not match'
+        else:
+          self.restrictions[m.group(1)] = [slot]
+          self.restrictions_num[m.group(1)] = int(m.group(2))
 
   def DetermineSlotOcclusion(self):
     self.pupil_slot_occlusion = [[None] * self.num_slots for _ in xrange(self.num_pupils)]
@@ -477,7 +479,6 @@ class Scheduler:
         ' #product= '+str(len(self.all_products))+
         ' sizeproduct= '+str(self.max_product_size))
     (handle_int, self.opb_file) = tempfile.mkstemp()
-    print self.opb_file
     handle = os.fdopen(handle_int, 'w')
     handle.write(self.header + '\n')
     handle.write('min: ' + ' '.join(self.objective) + ';\n')
@@ -488,7 +489,9 @@ class Scheduler:
     self.WriteFile()
     time_limit = 60
     total_time_limit = 600
-    print 'Solving with a time limit of ' + str(time_limit) + ' seconds of not improving the solution or a total time limit of ' + str(total_time_limit) + ' seconds'
+    print ('Solving with a time limit of ' + str(time_limit) +
+           ' seconds of not improving the solution or a total time limit of ' +
+           str(total_time_limit) + ' seconds')
     print self.header
     p = subprocess.Popen(
         ['clasp', '-t8', '--time-limit='+str(total_time_limit), self.opb_file],
@@ -527,7 +530,7 @@ class Scheduler:
   def ParseSolverOutput(self):
     x_names = []
     for line in self.solver_output.splitlines():
-      m = re.match('v(?:\s+-?x\d+)+', line)
+      m = re.match('^v(?:\s+-?x\d+)+$', line)
       if m:
         curr_vars = line.split(' ')
         assert curr_vars[0] == 'v'
@@ -536,26 +539,24 @@ class Scheduler:
     self.x_solution = dict()
     var_names = []
     for x in x_names:
-      m = re.match('(-)?(x\d+)', x)
+      m = re.match('^(-)?(x\d+)$', x)
       assert m
       if not m.group(1):
         self.x_solution[m.group(2)] = 1
         var_name = self.our_name[m.group(2)]
         var_names.append(var_name)
 
-    print ' '.join(var_names)
-
-    print '\n\n'
+    print '\n'
     self.schedule = [None] * self.spec.num_slots
     self.busy = [None] * self.spec.num_slots
     for var_name in var_names:
-      m = re.match('p(\d+)s(\d+)', var_name)
+      m = re.match('^p(\d+)s(\d+)$', var_name)
       assert m
       pupil = int(m.group(1))
       slot = int(m.group(2))
       if pupil > 0:
         self.schedule[slot] = pupil
-        print self.spec.pupil_name[pupil] + ' ' + self.spec.slot_name[slot]
+        print self.spec.pupil_name[pupil] + ' -- ' + self.spec.slot_name[slot]
       else:
         self.busy[slot] = True
     print '\n\n'
@@ -583,7 +584,7 @@ class Scheduler:
   def EvaluateObjective(self, objective):
     total_penalty = 0
     for term in objective:
-      m = re.match(r' *((?:-|\+)\d+)((?: +~?x\d+)+) *', term)
+      m = re.match(r'^ *((?:-|\+)\d+)((?: +~?x\d+)+) *$', term)
       assert m, 'failed to parse: ' + term
       penalty = int(m.group(1))
       apply_penalty = True
@@ -622,3 +623,5 @@ s.Prepare()
 print str(s)
 s.Solve()
 s.EvaluateAllObjectives()
+# TODO(mgeorg) Add automatic solution diversity based on changing
+# the penalty terms, or removing certain days.

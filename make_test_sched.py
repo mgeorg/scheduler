@@ -7,7 +7,8 @@ with open('sched.csv', 'wb') as csvfile:
   slot_times = ['Schedule']
   i1_available = ['Instructor1']
   i1_restriction = ['Instructor1 Restrictions']
-  days = ['M', 'T', 'W', 'R', 'F', 'S', 'U']
+  # days = ['M', 'T', 'W', 'R', 'F', 'S', 'U']
+  days = ['M', 'T', 'W', 'R', 'F']
   for day_index in xrange(len(days)):
     day = days[day_index]
     for t in [x*30+9*60 for x in xrange(8*2+1)]:
@@ -22,13 +23,15 @@ with open('sched.csv', 'wb') as csvfile:
       i1_available.append(val)
       restriction = ''
       if t in [x*30+11*60+30 for x in xrange(4)]:
-        restriction = 'L-' + day + '_1_3'
+        restriction = 'L' + day + '_1'
+      if t in [x*30+11*60+30 for x in xrange(1)]:
+        restriction += ',F_0'
       i1_restriction.append(restriction)
     i1_available[-1] = ''
   csvwriter.writerow(slot_times)
   csvwriter.writerow(i1_available)
   csvwriter.writerow(i1_restriction)
-  for pupil in xrange(int((len(slot_times)-1)*.8)):
+  for pupil in xrange(int((len(slot_times)-1)*.4)):
     pupil_available = ['P'+str(pupil)]
     for slot in xrange(len(slot_times)-1):
       r = random.random()
