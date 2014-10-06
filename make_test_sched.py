@@ -35,7 +35,9 @@ with open('sched.csv', 'wb') as csvfile:
     pupil_name = 'P'+str(pupil)
     if (pupil % 3) == 1:
       pupil_name += ' [60min]'
-    if (pupil % 3) == 2:
+    if (pupil % 5) == 1:
+      pupil_name += ' [x3]'
+    elif (pupil % 4) == 1:
       pupil_name += ' [x2]'
     pupil_available = [pupil_name]
     for slot in xrange(len(slot_times)-1):
