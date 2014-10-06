@@ -32,7 +32,12 @@ with open('sched.csv', 'wb') as csvfile:
   csvwriter.writerow(i1_available)
   csvwriter.writerow(i1_restriction)
   for pupil in xrange(int((len(slot_times)-1)*.4)):
-    pupil_available = ['P'+str(pupil)]
+    pupil_name = 'P'+str(pupil)
+    if (pupil % 3) == 1:
+      pupil_name += ' [60min]'
+    if (pupil % 3) == 2:
+      pupil_name += ' [x2]'
+    pupil_available = [pupil_name]
     for slot in xrange(len(slot_times)-1):
       r = random.random()
       if r < .7:

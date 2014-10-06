@@ -118,13 +118,22 @@ class Constraints:
     assert len(self.pupil_slot_preference) > 0, 'The second row was malformed.'
     assert len(row)-1 == self.num_slots, 'All rows must be of the same length.'
 
-    # TODO(mgeorg) Allow the user to specify multiple lessons and lesson length.
     self.pupil_name.append(row[0])
-    self.pupil_num_lessons.append(1)
-    self.pupil_lesson_length.append(30)
-    if len(self.pupil_lesson_length) == 5:
-      # TODO(mgeorg) This if statement is here just for testing.
-      self.pupil_lesson_length.append(60)
+    m = re.match(r'(.*)\[\s*(\d+)\s*min\s*\]\s*(.*)', row[0])
+    if m:
+      row[0] = m.group(1)+m.group(3)
+      row[0] = row[0].strip()
+      self.pupil_lesson_length.append(int(m.group(2)))
+    else:
+      self.pupil_lesson_length.append(30)
+    m = re.match(r'(.*)\[\s*x\s*(\d+)\s*\]\s*(.*)', row[0])
+    if m:
+      row[0] = m.group(1)+m.group(3)
+      row[0] = row[0].strip()
+      self.pupil_num_lessons.append(int(m.group(2)))
+    else:
+      self.pupil_num_lessons.append(1)
+
     self.ParsePreferenceRow(row)
 
   def ParsePreferenceRow(self, row):
@@ -140,11 +149,11 @@ class Constraints:
     assert len(row)-1 == self.num_slots, 'All rows must be of the same length.'
 
     for slot in xrange(self.num_slots):
-      row[slot+1].strip()
+      row[slot+1] = row[slot+1].strip()
       if not row[slot+1]:
         continue
       for restriction_spec in row[slot+1].split(','):
-        restriction_spec.strip()
+        restriction_spec = restriction_spec.strip()
         m = re.match(r'^([^_]+)_(\d+)$', restriction_spec)
         assert m, 'Restrictions cell does not have proper format: ' + restriction_spec
         if m.group(1) in self.restrictions:
@@ -292,7 +301,7 @@ class Scheduler:
             x_names.append(self.x_name[var_name])
       if self.available['p0s'+str(slot)] and x_names:
         self.constraints.append('1 ' + self.x_name['p0s'+str(slot)] + ' -1 ' +
-                                ' -1 '.join(x_names) + ' >= 0;')
+                                ' -1 '.join(x_names) + ' = 0;')
 
   def MakePupilConstraints(self):
     """Each pupil must have the correct number of sessions."""
@@ -307,6 +316,17 @@ class Scheduler:
                        ' has no available slots.')
       self.constraints.append('1 ' + ' +1 '.join(x_names) + ' = ' +
                               str(self.spec.pupil_num_lessons[pupil]) + ';')
+      if self.spec.pupil_num_lessons[pupil] > 1:
+        # Restrict multiple lessons to different days.
+        for day in xrange(7):
+          x_names = []
+          for slot in self.spec.slots_by_day[day]:
+            var_name = 'p'+str(pupil)+'s'+str(slot)
+            if self.available[var_name]:
+              x_names.append(self.x_name[var_name])
+          if x_names:
+            self.constraints.append('-1 ' + ' -1 '.join(x_names) + ' >= -1;')
+                                   
 
   def MakeRestrictionsConstraints(self):
     for restriction_name, slots in self.spec.restrictions.iteritems():
@@ -487,7 +507,7 @@ class Scheduler:
 
   def Solve(self):
     self.WriteFile()
-    time_limit = 60
+    time_limit = 5
     total_time_limit = 600
     print ('Solving with a time limit of ' + str(time_limit) +
            ' seconds of not improving the solution or a total time limit of ' +
@@ -549,6 +569,7 @@ class Scheduler:
     print '\n'
     self.schedule = [None] * self.spec.num_slots
     self.busy = [None] * self.spec.num_slots
+    pupil_schedule = dict()
     for var_name in var_names:
       m = re.match('^p(\d+)s(\d+)$', var_name)
       assert m
@@ -556,9 +577,15 @@ class Scheduler:
       slot = int(m.group(2))
       if pupil > 0:
         self.schedule[slot] = pupil
-        print self.spec.pupil_name[pupil] + ' -- ' + self.spec.slot_name[slot]
+        if pupil not in pupil_schedule:
+          pupil_schedule[pupil] = [self.spec.slot_name[slot]]
+        else:
+          pupil_schedule[pupil].append(self.spec.slot_name[slot])
       else:
         self.busy[slot] = True
+    for pupil in xrange(1, self.spec.num_pupils):
+      print (self.spec.pupil_name[pupil] + ' -- ' +
+             ', '.join(pupil_schedule[pupil]))
     print '\n\n'
     for day in xrange(7):
       for slot in self.spec.slots_by_day[day]:
@@ -589,7 +616,7 @@ class Scheduler:
       penalty = int(m.group(1))
       apply_penalty = True
       for x in m.group(2).split():
-        x.strip()
+        x = x.strip()
         neg = False
         if x[0] == '~':
           neg = True
@@ -625,3 +652,4 @@ s.Solve()
 s.EvaluateAllObjectives()
 # TODO(mgeorg) Add automatic solution diversity based on changing
 # the penalty terms, or removing certain days.
+# TODO(mgeorg) make all the configuration information accessible.
