@@ -1,13 +1,7 @@
 #!/usr/bin/python
+# Copyright (c) 2014 Manfred Georg
 #
 # Author: Manfred Georg <manfred.georg@gmail.com>
-#
-# LEGAL WARNING: Manfred Georg is an employee of Google, Inc.
-#                The copyright ownership of this piece of code has
-#                has not been evaluated by a Google lawyer yet.
-#
-# You may not use this code.  You do not have a license to use this
-# code.
 
 import collections
 import csv
