@@ -43,7 +43,7 @@ class Constraints:
     self.pupil_lesson_length = []  # The length of the lesson in minutes.
     self.pupil_slot_occlusion = []  # pupil x slot x slot it would fill.
     self.slot_pupil_occlusion = []  # slot x pupil x slot that if filled would occlud this slot.
-    self.day_range = [(0, 24*60) for _ in xrange(7)]
+    self.day_range = [(0, 24*60) for _ in range(7)]
     self.slots_by_day = [None] * 7
     self.day_to_number = {'M' : 0, 'T' : 1, 'W' : 2, 'R' : 3,
                           'F' : 4, 'S' : 5, 'U' : 6}
@@ -63,7 +63,7 @@ class Constraints:
             '\nself.slots_by_day: ' + str(self.slots_by_day))
 
   def ParseFile(self, file_name):
-    with open(file_name, 'rb') as csvfile:
+    with open(file_name, 'rt', encoding='utf8') as csvfile:
       sched_reader = csv.reader(csvfile)
       for row in sched_reader:
         row = [x.strip() for x in row]
@@ -86,7 +86,7 @@ class Constraints:
     self.slot_name = [None] * self.num_slots
     self.slot_time = [None] * self.num_slots
     last_day_time = None
-    for slot in xrange(self.num_slots):
+    for slot in range(self.num_slots):
       slot_name = row[slot+1]
       self.slot_name[slot] = slot_name
       m = re.match(r'^\s*([MTWRFSU])\s+(\d+):(\d+)$', slot_name)
@@ -148,7 +148,7 @@ class Constraints:
   def ParsePreferenceRow(self, row):
     self.num_pupils += 1
     self.pupil_slot_preference.append([0] * self.num_slots)
-    for i in xrange(self.num_slots):
+    for i in range(self.num_slots):
       if row[i+1].isdigit():
         self.pupil_slot_preference[-1][i] = int(row[i+1])
 
@@ -157,7 +157,7 @@ class Constraints:
     assert self.num_slots > 0, 'The first row was malformed.'
     assert len(row)-1 == self.num_slots, 'All rows must be of the same length.'
 
-    for slot in xrange(self.num_slots):
+    for slot in range(self.num_slots):
       row[slot+1] = row[slot+1].strip()
       if not row[slot+1]:
         continue
@@ -173,10 +173,10 @@ class Constraints:
           self.restrictions_num[m.group(1)] = int(m.group(2))
 
   def DetermineSlotOcclusion(self):
-    self.pupil_slot_occlusion = [[None] * self.num_slots for _ in xrange(self.num_pupils)]
+    self.pupil_slot_occlusion = [[None] * self.num_slots for _ in range(self.num_pupils)]
     self.pupil_slot_occlusion[0] = None
-    for pupil in xrange(1, self.num_pupils):
-      for slot in xrange(self.num_slots):
+    for pupil in range(1, self.num_pupils):
+      for slot in range(self.num_slots):
         lesson_length_left = self.pupil_lesson_length[pupil]
         offset = 0
         slots = []
@@ -188,9 +188,9 @@ class Constraints:
             lesson_length_left = 0
           offset += 1
         self.pupil_slot_occlusion[pupil][slot] = slots
-    self.slot_pupil_occlusion = [[None] * self.num_pupils for _ in xrange(self.num_slots)]
-    for pupil in xrange(1, self.num_pupils):
-      for slot in xrange(self.num_slots):
+    self.slot_pupil_occlusion = [[None] * self.num_pupils for _ in range(self.num_slots)]
+    for pupil in range(1, self.num_pupils):
+      for slot in range(self.num_slots):
         for occlud in self.pupil_slot_occlusion[pupil][slot]:
           if self.slot_pupil_occlusion[occlud][pupil]:
             self.slot_pupil_occlusion[occlud][pupil].append(slot)
@@ -205,9 +205,9 @@ class Constraints:
     instructor is available for.  We assert that the instructor is not
     available for a slot which spans midnight.
     """
-    for day in xrange(7):
+    for day in range(7):
       self.slots_by_day[day] = [
-          i for i in xrange(self.num_slots) if self.slot_time[i].day == day]
+          i for i in range(self.num_slots) if self.slot_time[i].day == day]
       while (self.slots_by_day[day] and
              self.pupil_slot_preference[0][self.slots_by_day[day][0]] <= 0):
         # The instructor isn't available for the first slot.
@@ -248,7 +248,7 @@ class Scheduler:
     self.instructor_preference_penalty = [
         3*x+3 for x in self.preference_penalty]
     self.no_break_penalty = dict()
-    for i in xrange(23*2):
+    for i in range(23*2):
       self.no_break_penalty[i*30+60] = (i+1)*2
     self.all_objectives = dict()
 
@@ -278,16 +278,16 @@ class Scheduler:
     return x_name
 
   def MakeAllVariables(self):
-    for pupil in xrange(self.spec.num_pupils):
-      for slot in xrange(self.spec.num_slots):
+    for pupil in range(self.spec.num_pupils):
+      for slot in range(self.spec.num_slots):
         var_name = 'p'+str(pupil)+'s'+str(slot)
         if self.available[var_name]:
           self.MakeVariable(var_name)
 
   def MakeAvailabilityDict(self):
     # Each session only has 1 student.
-    for slot in xrange(self.spec.num_slots):
-      for pupil in xrange(self.spec.num_pupils):
+    for slot in range(self.spec.num_slots):
+      for pupil in range(self.spec.num_pupils):
         var_name = 'p'+str(pupil)+'s'+str(slot)
         self.available[var_name] = (
             self.spec.pupil_slot_preference[pupil][slot] > 0 and
@@ -300,9 +300,9 @@ class Scheduler:
     with a session which has gone past its end time.
     """
     # Each session needs an instructor and only has 1 student.
-    for slot in xrange(self.spec.num_slots):
+    for slot in range(self.spec.num_slots):
       x_names = []
-      for pupil in xrange(1, self.spec.num_pupils):
+      for pupil in range(1, self.spec.num_pupils):
         for pupil_slot in self.spec.slot_pupil_occlusion[slot][pupil]:
           # Consider all slots that would occlud this slot if we scheduled them.
           var_name = 'p'+str(pupil)+'s'+str(pupil_slot)
@@ -315,9 +315,9 @@ class Scheduler:
   def MakePupilConstraints(self):
     """Each pupil must have the correct number of sessions."""
     # Remember that pupil 0 is the instructor.
-    for pupil in xrange(1, self.spec.num_pupils):
+    for pupil in range(1, self.spec.num_pupils):
       x_names = []
-      for slot in xrange(self.spec.num_slots):
+      for slot in range(self.spec.num_slots):
         var_name = 'p'+str(pupil)+'s'+str(slot)
         if self.available[var_name]:
           x_names.append(self.x_name[var_name])
@@ -327,7 +327,7 @@ class Scheduler:
                               str(self.spec.pupil_num_lessons[pupil]) + ';')
       if self.spec.pupil_num_lessons[pupil] > 1:
         # Restrict multiple lessons to different days.
-        for day in xrange(7):
+        for day in range(7):
           x_names = []
           for slot in self.spec.slots_by_day[day]:
             var_name = 'p'+str(pupil)+'s'+str(slot)
@@ -338,7 +338,7 @@ class Scheduler:
                                    
 
   def MakeRestrictionsConstraints(self):
-    for restriction_name, slots in self.spec.restrictions.iteritems():
+    for restriction_name, slots in self.spec.restrictions.items():
       num = self.spec.restrictions_num[restriction_name]
       x_names = []
       for slot in slots:
@@ -356,8 +356,8 @@ class Scheduler:
   def MakePreferencePenalty(self):
     objective = list()
     self.all_objectives['preference'] = objective
-    for pupil in xrange(self.spec.num_pupils):
-      for slot in xrange(self.spec.num_slots):
+    for pupil in range(self.spec.num_pupils):
+      for slot in range(self.spec.num_slots):
         if self.spec.pupil_slot_preference[pupil][slot] > 1:
           var_name = 'p'+str(pupil)+'s'+str(slot)
           if not self.available[var_name]:
@@ -378,7 +378,7 @@ class Scheduler:
     objective = list()
     self.all_objectives['arrive late'] = objective
     # Assign a bonus for every minute the instructor comes in late.
-    for day in xrange(7):
+    for day in range(7):
       x_names = []
       for slot in self.spec.slots_by_day[day]:
         var_name = 'p0s'+str(slot)
@@ -405,7 +405,7 @@ class Scheduler:
     # Assign a bonus for every minute the instructor leaves early.
     # TODO(mgeorg) This isn't perfect, it assumes that the entire slot
     # is used, when a lesson might have just barely used some time up.
-    for day in xrange(7):
+    for day in range(7):
       x_names = []
       for slot in reversed(self.spec.slots_by_day[day]):
         var_name = 'p0s'+str(slot)
@@ -431,9 +431,9 @@ class Scheduler:
     self.all_objectives['no break'] = objective
     # Assign a penalty for every minute the instructor doesn't have a
     # break past some allowable threshold.
-    for day in xrange(7):
+    for day in range(7):
       for no_break_penalty_tuple in sorted(self.no_break_penalty.items()):
-        for slot_in_day_index in xrange(len(self.spec.slots_by_day[day])):
+        for slot_in_day_index in range(len(self.spec.slots_by_day[day])):
           slot = self.spec.slots_by_day[day][slot_in_day_index]
           start_time = self.spec.slot_time[slot].time
           var_name = 'p0s'+str(slot)
@@ -473,7 +473,7 @@ class Scheduler:
 
     objective = list()
     self.all_objectives['day off correction'] = objective
-    for day in xrange(7):
+    for day in range(7):
       if not self.spec.slots_by_day[day]:
         continue
       workday_time = self.spec.day_range[day][1] - self.spec.day_range[day][0]
@@ -518,10 +518,10 @@ class Scheduler:
     self.WriteFile()
     time_limit = 5
     total_time_limit = 600
-    print ('Solving with a time limit of ' + str(time_limit) +
+    print(('Solving with a time limit of ' + str(time_limit) +
            ' seconds of not improving the solution or a total time limit of ' +
-           str(total_time_limit) + ' seconds')
-    print self.header
+           str(total_time_limit) + ' seconds'))
+    print(self.header)
     p = subprocess.Popen(
         ['clasp', '-t8', '--time-limit='+str(total_time_limit), self.opb_file],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
@@ -536,10 +536,10 @@ class Scheduler:
     while p.poll() == None and current_time - last_activity <= time_limit:
       if poll_obj.poll(0):
         last_activity = time.time()
-        char = p.stdout.read(1)
+        char = p.stdout.read(1).decode('ascii')
         if char == '\n':
           output.append(''.join(chars) + '\n')
-          print ''.join(chars)
+          print(''.join(chars))
           chars = []
         else:
           chars.append(char)
@@ -551,7 +551,8 @@ class Scheduler:
     if p.poll() == None:
       p.terminate()
     (remaining_output, unused_stderr) = p.communicate()
-    print remaining_output
+    remaining_output = remaining_output.decode('ascii')
+    print(remaining_output)
     output.append(remaining_output)
     self.solver_output = ''.join(output)
     self.ParseSolverOutput()
@@ -575,7 +576,7 @@ class Scheduler:
         var_name = self.our_name[m.group(2)]
         var_names.append(var_name)
 
-    print '\n'
+    print('\n')
     self.schedule = [None] * self.spec.num_slots
     self.busy = [None] * self.spec.num_slots
     pupil_schedule = dict()
@@ -592,11 +593,11 @@ class Scheduler:
           pupil_schedule[pupil].append(self.spec.slot_name[slot])
       else:
         self.busy[slot] = True
-    for pupil in xrange(1, self.spec.num_pupils):
-      print (self.spec.pupil_name[pupil] + ' -- ' +
-             ', '.join(pupil_schedule[pupil]))
-    print '\n\n'
-    for day in xrange(7):
+    for pupil in range(1, self.spec.num_pupils):
+      print((self.spec.pupil_name[pupil] + ' -- ' +
+             ', '.join(pupil_schedule[pupil])))
+    print('\n\n')
+    for day in range(7):
       for slot in self.spec.slots_by_day[day]:
         pupil = self.schedule[slot]
         instructor_preference = str(self.spec.pupil_slot_preference[0][slot])
@@ -604,18 +605,18 @@ class Scheduler:
         if pupil:
           pupil_preference = str(self.spec.pupil_slot_preference[pupil][slot])
           extra += 'p' + pupil_preference + ' '
-          print (extra + self.spec.slot_name[slot] + ' ' +
-                 self.spec.pupil_name[pupil])
+          print((extra + self.spec.slot_name[slot] + ' ' +
+                 self.spec.pupil_name[pupil]))
         else:
           extra += '   '
           if self.busy[slot]:
-            print extra + self.spec.slot_name[slot] + ' ---Lesson Ongoing---'
+            print(extra + self.spec.slot_name[slot] + ' ---Lesson Ongoing---')
           else:
             if self.spec.pupil_slot_preference[0][slot] > 0:
-              print extra + self.spec.slot_name[slot]
+              print(extra + self.spec.slot_name[slot])
             else:
-              print extra + self.spec.slot_name[slot] + ' ***Busy***'
-      print ''
+              print(extra + self.spec.slot_name[slot] + ' ***Busy***')
+      print('')
 
   def EvaluateObjective(self, objective):
     total_penalty = 0
@@ -640,23 +641,23 @@ class Scheduler:
 
   def EvaluateAllObjectives(self):
     total_penalty = 0
-    for name, objective in self.all_objectives.iteritems():
+    for name, objective in self.all_objectives.items():
       penalty = self.EvaluateObjective(objective)
       total_penalty += penalty
-      print 'Penalty ' + str(penalty) + ' for term \"' + name + '\"'
-    print 'Total Penalty ' + str(total_penalty)
+      print('Penalty ' + str(penalty) + ' for term \"' + name + '\"')
+    print('Total Penalty ' + str(total_penalty))
 
 
 c = Constraints()
 c.ParseFile(r'sched.csv')
-print str(c)
-print "###############################"
-print "###############################"
-print "###############################"
+print(str(c))
+print("###############################")
+print("###############################")
+print("###############################")
 
 s = Scheduler(c)
 s.Prepare()
-print str(s)
+print(str(s))
 s.Solve()
 s.EvaluateAllObjectives()
 # TODO(mgeorg) Add automatic solution diversity based on changing
