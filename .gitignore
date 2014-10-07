@@ -29,3 +29,5 @@
 
 # django files.
 db.sqlite3
+**/*.pyc
+**/__pycache__*
