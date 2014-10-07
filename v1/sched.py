@@ -163,6 +163,7 @@ class Constraints:
         continue
       for restriction_spec in row[slot+1].split(','):
         restriction_spec = restriction_spec.strip()
+        # TODO(mgeorg) Make Complex Restrictions support groups of slots.
         m = re.match(r'^([^_]+)_(\d+)$', restriction_spec)
         assert m, 'Restrictions cell does not have proper format: ' + restriction_spec
         if m.group(1) in self.restrictions:
