@@ -1,3 +1,7 @@
 from django.contrib import admin
+from solver.models import *
 
-# Register your models here.
+admin.site.register(Constraints)
+admin.site.register(SolverOptions)
+admin.site.register(SolverRun)
+admin.site.register(Schedule)
