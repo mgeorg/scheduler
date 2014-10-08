@@ -139,6 +139,8 @@ class Constraints:
     if m:
       row[0] = m.group(1)+m.group(3)
       row[0] = row[0].strip()
+      # TODO(mgeorg) Add a penalty term for scheduling lessons on
+      # consecutive days.
       self.pupil_num_lessons.append(int(m.group(2)))
     else:
       self.pupil_num_lessons.append(1)
