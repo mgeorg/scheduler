@@ -1,4 +1,7 @@
 <h1>Availability Detail page for id {{ id }}</h1>
+{% if availability.deleted %}
+You do not have permission to view this page.
+{% else %}
 <table>
 {% for table_row in table_data %}
   <tr>
@@ -8,3 +11,4 @@
   </tr>
 {% endfor %}
 </table>
+{% endif %}
