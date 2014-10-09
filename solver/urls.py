@@ -3,6 +3,6 @@ from solver import views
 
 urlpatterns = patterns('',
   url(r'^$', views.index, name='index'),
-  url(r'^constraints_(?P<constraints_id>\d+)/$', views.constraints, name='constraints'),
+  url(r'^availability/(?P<availability_id>\d+)/$', views.availability, name='availability'),
 )
 

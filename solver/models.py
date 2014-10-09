@@ -1,13 +1,13 @@
 from django.db import models
 
-class Constraints(models.Model):
+class Availability(models.Model):
   creation_time = models.DateTimeField()
   deleted = models.BooleanField(default=False)
   csv_table_data = models.CharField(max_length=65535)
 
 class SolverRun(models.Model):
   creation_time = models.DateTimeField()
-  solver_version = model.CharField(max_length=10)
+  solver_version = models.CharField(max_length=10)
   deleted = models.BooleanField(default=False)
 
   INITIALIZED = 'i'

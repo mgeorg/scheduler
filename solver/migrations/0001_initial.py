@@ -11,7 +11,7 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='Constraints',
+            name='Availability',
             fields=[
                 ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
                 ('creation_time', models.DateTimeField()),
@@ -36,28 +36,28 @@ class Migration(migrations.Migration):
             bases=(models.Model,),
         ),
         migrations.CreateModel(
-            name='SolverOptions',
+            name='SolverRun',
             fields=[
                 ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
-                ('arrive_late_bonus', models.IntegerField()),
-                ('leave_early_bonus', models.IntegerField()),
-                ('day_off_bonus', models.IntegerField()),
-                ('pupil_preference_penalty_list', models.CommaSeparatedIntegerField(max_length=100)),
-                ('instructor_preference_penalty_list', models.CommaSeparatedIntegerField(max_length=100)),
-                ('no_break_penalty', models.CharField(max_length=1000)),
+                ('creation_time', models.DateTimeField()),
+                ('solver_version', models.CharField(max_length=10)),
+                ('deleted', models.BooleanField(default=False)),
+                ('state', models.CharField(max_length=1, choices=[('i', 'Solver Initialized'), ('r', 'Solver Running'), ('n', 'No Solution'), ('s', 'Solution Found'), ('o', 'Optimal Solution Found')])),
             ],
             options={
             },
             bases=(models.Model,),
         ),
         migrations.CreateModel(
-            name='SolverRun',
+            name='SolverOptions',
             fields=[
-                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
-                ('creation_time', models.DateTimeField()),
-                ('deleted', models.BooleanField(default=False)),
-                ('state', models.CharField(max_length=1, choices=[('i', 'Solver Initialized'), ('r', 'Solver Running'), ('n', 'No Solution'), ('s', 'Solution Found'), ('o', 'Optimal Solution Found')])),
-                ('options', models.ForeignKey(to='solver.SolverOptions')),
+                ('options', models.OneToOneField(primary_key=True, serialize=False, to='solver.SolverRun')),
+                ('arrive_late_bonus', models.IntegerField()),
+                ('leave_early_bonus', models.IntegerField()),
+                ('day_off_bonus', models.IntegerField()),
+                ('pupil_preference_penalty_list', models.CommaSeparatedIntegerField(max_length=100)),
+                ('instructor_preference_penalty_list', models.CommaSeparatedIntegerField(max_length=100)),
+                ('no_break_penalty', models.CharField(max_length=1000)),
             ],
             options={
             },

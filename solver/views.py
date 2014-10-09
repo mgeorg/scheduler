@@ -4,5 +4,5 @@ from django.http import HttpResponse
 def index(request):
   return HttpResponse("Hello, world.")
 
-def constraints(request, constraints_id):
-  return HttpResponse("You're looking at constraint problem %s." % constraints_id)
+def availability(request, availability_id):
+  return HttpResponse("You're looking at availability problem %s." % availability_id)
