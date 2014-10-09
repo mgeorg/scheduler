@@ -63,7 +63,7 @@ class Constraints:
             '\nself.slots_by_day: ' + str(self.slots_by_day))
 
   def ParseFile(self, file_name):
-    with open(file_name, 'rt', encoding='utf8') as csvfile:
+    with open(file_name, newline='') as csvfile:
       sched_reader = csv.reader(csvfile)
       for row in sched_reader:
         row = [x.strip() for x in row]
