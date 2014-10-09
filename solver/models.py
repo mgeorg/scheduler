@@ -3,7 +3,7 @@ from django.db import models
 class Availability(models.Model):
   creation_time = models.DateTimeField()
   deleted = models.BooleanField(default=False)
-  csv_table_data = models.CharField(max_length=65535)
+  csv_table_data = models.TextField()
 
 class SolverRun(models.Model):
   creation_time = models.DateTimeField()
@@ -39,6 +39,6 @@ class Schedule(models.Model):
   creation_time = models.DateTimeField()
   deleted = models.BooleanField(default=False)
   score = models.IntegerField()
-  schedule = models.CharField(max_length=65535)
+  schedule = models.TextField()
   created_by = models.ForeignKey(SolverRun)
 
