@@ -14,9 +14,9 @@ class Migration(migrations.Migration):
             name='Availability',
             fields=[
                 ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
-                ('creation_time', models.DateTimeField()),
+                ('creation_time', models.DateTimeField(auto_now_add=True)),
                 ('deleted', models.BooleanField(default=False)),
-                ('csv_table_data', models.CharField(max_length=65535)),
+                ('csv_table_data', models.TextField()),
             ],
             options={
             },
@@ -26,10 +26,25 @@ class Migration(migrations.Migration):
             name='Schedule',
             fields=[
                 ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
-                ('creation_time', models.DateTimeField()),
+                ('creation_time', models.DateTimeField(auto_now_add=True)),
                 ('deleted', models.BooleanField(default=False)),
                 ('score', models.IntegerField()),
-                ('schedule', models.CharField(max_length=65535)),
+                ('schedule', models.TextField()),
+            ],
+            options={
+            },
+            bases=(models.Model,),
+        ),
+        migrations.CreateModel(
+            name='SolverOptions',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('arrive_late_bonus', models.IntegerField()),
+                ('leave_early_bonus', models.IntegerField()),
+                ('day_off_bonus', models.IntegerField()),
+                ('no_break_penalty', models.CharField(max_length=1000)),
+                ('pupil_preference_penalty_list', models.CommaSeparatedIntegerField(max_length=100)),
+                ('instructor_preference_penalty_list', models.CommaSeparatedIntegerField(max_length=100)),
             ],
             options={
             },
@@ -39,25 +54,14 @@ class Migration(migrations.Migration):
             name='SolverRun',
             fields=[
                 ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
-                ('creation_time', models.DateTimeField()),
+                ('creation_time', models.DateTimeField(auto_now_add=True)),
                 ('solver_version', models.CharField(max_length=10)),
                 ('deleted', models.BooleanField(default=False)),
-                ('state', models.CharField(max_length=1, choices=[('i', 'Solver Initialized'), ('r', 'Solver Running'), ('n', 'No Solution'), ('s', 'Solution Found'), ('o', 'Optimal Solution Found')])),
-            ],
-            options={
-            },
-            bases=(models.Model,),
-        ),
-        migrations.CreateModel(
-            name='SolverOptions',
-            fields=[
-                ('options', models.OneToOneField(primary_key=True, serialize=False, to='solver.SolverRun')),
-                ('arrive_late_bonus', models.IntegerField()),
-                ('leave_early_bonus', models.IntegerField()),
-                ('day_off_bonus', models.IntegerField()),
-                ('pupil_preference_penalty_list', models.CommaSeparatedIntegerField(max_length=100)),
-                ('instructor_preference_penalty_list', models.CommaSeparatedIntegerField(max_length=100)),
-                ('no_break_penalty', models.CharField(max_length=1000)),
+                ('score', models.IntegerField()),
+                ('solver_output', models.TextField()),
+                ('state', models.CharField(max_length=1, choices=[('i', 'Solver Initialized'), ('r', 'Solver Running'), ('d', 'Solver Done')])),
+                ('solution', models.CharField(max_length=1, choices=[('n', 'No Solution Found'), ('i', 'Problem is Impossible'), ('s', 'Solution Found'), ('o', 'Optimal Solution Found')])),
+                ('options', models.OneToOneField(to='solver.SolverOptions')),
             ],
             options={
             },

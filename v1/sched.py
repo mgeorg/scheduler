@@ -251,6 +251,9 @@ class Scheduler:
     self.instructor_preference_penalty = [
         3*x+3 for x in self.preference_penalty]
     self.no_break_penalty = dict()
+    # TODO(mgeorg) Change this to an explicit N^2 scheme where the
+    # session runs are bookended with open slots.  This will make the
+    # penalties more understandable.
     for i in range(23*2):
       self.no_break_penalty[i*30+60] = (i+1)*2
     self.all_objectives = dict()
@@ -666,3 +669,4 @@ s.EvaluateAllObjectives()
 # TODO(mgeorg) Add automatic solution diversity based on changing
 # the penalty terms, or removing certain days.
 # TODO(mgeorg) make all the configuration information accessible.
+print(s.no_break_penalty)

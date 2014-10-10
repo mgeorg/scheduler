@@ -1,4 +1,4 @@
-<h1>Availability Detail page for id {{ id }}</h1>
+<h1>Availability Detail page for id {{ availability.id }}</h1>
 {% if availability.deleted %}
 You do not have permission to view this page.
 {% else %}
@@ -11,4 +11,8 @@ You do not have permission to view this page.
   </tr>
 {% endfor %}
 </table>
+<form action="{% url 'solver:start_run' availability.id %}" method="post">
+{% csrf_token %}
+<input type="submit" value="Solve" />
+</form>
 {% endif %}
