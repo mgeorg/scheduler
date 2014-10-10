@@ -1,0 +1,9 @@
+<h1>Solver Run Detail</h1>
+{% if object.deleted %}
+You do not have permission to view this page.
+{% else %}
+<p>Version {{object.solver_version}}</p>
+<p>Started at: {{object.creation_time}} UTC</p>
+<p>Current State: {{ object.get_state_display }}</p>
+<p>Options: {{ object.options | linebreaks }}</p>
+{% endif %}
