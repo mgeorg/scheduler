@@ -11,8 +11,18 @@ You do not have permission to view this page.
   </tr>
 {% endfor %}
 </table>
-<form action="{% url 'solver:start_run' availability.id %}" method="post">
+<form action="{% url 'solver:start_run' %}" method="post"><br>
 {% csrf_token %}
-<input type="submit" value="Solve" />
+<textarea name="csv_data" rows="20" width=100%>
+{% for table_row in table_data %}{{ table_row | join:"," }}
+{% endfor %}
+</textarea><br>
+<input type="text" name="arrive_late_bonus" value="310" /><br>
+<input type="text" name="leave_early_bonus" value="320" /><br>
+<input type="text" name="day_off_bonus" value="500" /><br>
+<input type="text" name="no_break_penalty" value="100" /><br>
+<input type="text" name="pupil_preference_penalty" value="100,201,403" /><br>
+<input type="text" name="instructor_preference_penalty" value="305,620,1300" /><br>
+<input type="submit" value="Solve" /><br>
 </form>
 {% endif %}

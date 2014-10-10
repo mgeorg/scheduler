@@ -29,7 +29,8 @@ class SolverRun(models.Model):
   solver_version = models.CharField(max_length=10)
   deleted = models.BooleanField(default=False)
   options = models.OneToOneField(SolverOptions)
-  score = models.IntegerField()
+  score = models.IntegerField(null=True)
+  scheduler_output = models.TextField()
   solver_output = models.TextField()
 
   INITIALIZED = 'i'

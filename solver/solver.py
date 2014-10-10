@@ -27,6 +27,8 @@ import subprocess
 import tempfile
 import time
 
+import solver.models
+
 SlotTimeSpec = collections.namedtuple('SlotTimeSpec', 'day time length')
 
 class Constraints:
@@ -67,6 +69,8 @@ class Constraints:
 
   def ParseIterator(self, sched_reader):
     for row in sched_reader:
+      if not row:
+        continue
       row = [x.strip() for x in row]
       if row[0] == 'Schedule':
         self.ParseTimeRow(row)
@@ -235,7 +239,12 @@ class Constraints:
 
 
 class Scheduler:
-  def __init__(self, spec):
+  version = 0.1
+
+  def __init__(self, spec, pref, solver_run):
+    self.solver_run = solver_run
+    self.solver_run.version = self.version
+
     self.spec = spec
     self.next_var = 1
     self.x_name = dict()
@@ -243,21 +252,24 @@ class Scheduler:
     self.available = dict()
     self.constraints = []
     self.objective = []
-    self.arrive_late_bonus = 310
-    self.leave_early_bonus = 320
-    self.day_off_bonus = 10000
     self.all_products = dict()
     self.max_product_size = 0
-    self.preference_penalty = [0, 0, 100, 200, 400, 800]
+    self.all_objectives = dict()
+
+    self.arrive_late_bonus = int(pref.arrive_late_bonus)
+    self.leave_early_bonus = int(pref.leave_early_bonus)
+    self.day_off_bonus = int(pref.day_off_bonus)
+    self.pupil_preference_penalty = [
+        int(x.strip()) for x in pref.pupil_preference_penalty_list.split()]
     self.instructor_preference_penalty = [
-        3*x+3 for x in self.preference_penalty]
+        int(x.strip()) for x in pref.instructor_preference_penalty_list.split()]
+    self.no_break_penalty = pref.no_break_penalty
     self.no_break_penalty = dict()
     # TODO(mgeorg) Change this to an explicit N^2 scheme where the
     # session runs are bookended with open slots.  This will make the
     # penalties more understandable.
     for i in range(23*2):
       self.no_break_penalty[i*30+60] = (i+1)*2
-    self.all_objectives = dict()
 
   def __str__(self):
     return ('self.x_name: ' + str(self.x_name) +
@@ -372,11 +384,11 @@ class Scheduler:
           x = self.x_name[var_name]
           if pupil == 0:
             penalty = (self.instructor_preference_penalty[
-                self.spec.pupil_slot_preference[pupil][slot]] *
+                self.spec.pupil_slot_preference[pupil][slot]-2] *
                 self.spec.slot_time[slot].length)
           else:
-            penalty = (self.preference_penalty[
-                self.spec.pupil_slot_preference[pupil][slot]] *
+            penalty = (self.pupil_preference_penalty[
+                self.spec.pupil_slot_preference[pupil][slot]-2] *
                 self.spec.slot_time[slot].length)
           objective.append(' +' + str(penalty) + ' ' + x)
     self.objective.extend(objective)
@@ -523,7 +535,7 @@ class Scheduler:
 
   def Solve(self):
     self.WriteFile()
-    time_limit = 5
+    time_limit = 60
     total_time_limit = 600
     print(('Solving with a time limit of ' + str(time_limit) +
            ' seconds of not improving the solution or a total time limit of ' +
@@ -535,12 +547,19 @@ class Scheduler:
     lines = []
     current_time = time.time()
     last_activity = current_time
+    last_save = current_time
+    self.solver_run.state = self.solver_run.RUNNING
+    self.solver_run.save()
 
     poll_obj = select.poll()
     poll_obj.register(p.stdout, select.POLLIN)   
     output = []
     chars = []
     while p.poll() == None and current_time - last_activity <= time_limit:
+      if current_time - last_save > 1.0:
+        # TODO(mgeorg) Fill score variable
+        self.solver_run.solver_output = ''.join(output)
+        self.solver_run.save()
       if poll_obj.poll(0):
         last_activity = time.time()
         char = p.stdout.read(1).decode('ascii')
@@ -561,12 +580,13 @@ class Scheduler:
     remaining_output = remaining_output.decode('ascii')
     print(remaining_output)
     output.append(remaining_output)
-    self.solver_output = ''.join(output)
+    self.solver_run.solver_output = ''.join(output)
+    self.solver_run.save()
     self.ParseSolverOutput()
 
   def ParseSolverOutput(self):
     x_names = []
-    for line in self.solver_output.splitlines():
+    for line in self.solver_run.solver_output.splitlines():
       m = re.match('^v(?:\s+-?x\d+)+$', line)
       if m:
         curr_vars = line.split(' ')
@@ -624,6 +644,12 @@ class Scheduler:
             else:
               print(extra + self.spec.slot_name[slot] + ' ***Busy***')
       print('')
+
+    self.solver_run.schedule = 'Something Useful.'
+    self.solver_run.state = self.solver_run.DONE
+    # TODO(mgeorg) actually parse the output.
+    self.solver_run.solution = self.solver_run.IMPOSSIBLE
+    self.solver_run.save()
 
   def EvaluateObjective(self, objective):
     total_penalty = 0
