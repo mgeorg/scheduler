@@ -26,9 +26,11 @@ import select
 import subprocess
 import tempfile
 import time
+import logging
 
 import solver.models
 
+logger = logging.getLogger(__name__)
 SlotTimeSpec = collections.namedtuple('SlotTimeSpec', 'day time length')
 
 class Constraints:
@@ -162,7 +164,7 @@ class Constraints:
   def ParseRestrictionsRow(self, row):
     assert row[0] == 'Instructor1 Restrictions'
     assert self.num_slots > 0, 'The first row was malformed.'
-    assert len(row)-1 == self.num_slots, 'All rows must be of the same length.'
+    assert len(row)-1 == self.num_slots, 'All rows must be of the same length (%d vs %d).' % (len(row)-1, self.num_slots)
 
     for slot in range(self.num_slots):
       row[slot+1] = row[slot+1].strip()
@@ -260,9 +262,9 @@ class Scheduler:
     self.leave_early_bonus = int(pref.leave_early_bonus)
     self.day_off_bonus = int(pref.day_off_bonus)
     self.pupil_preference_penalty = [
-        int(x.strip()) for x in pref.pupil_preference_penalty_list.split()]
+        int(x.strip()) for x in pref.pupil_preference_penalty_list.split(',')]
     self.instructor_preference_penalty = [
-        int(x.strip()) for x in pref.instructor_preference_penalty_list.split()]
+        int(x.strip()) for x in pref.instructor_preference_penalty_list.split(',')]
     self.no_break_penalty = pref.no_break_penalty
     self.no_break_penalty = dict()
     # TODO(mgeorg) Change this to an explicit N^2 scheme where the
@@ -537,10 +539,10 @@ class Scheduler:
     self.WriteFile()
     time_limit = 60
     total_time_limit = 600
-    print(('Solving with a time limit of ' + str(time_limit) +
-           ' seconds of not improving the solution or a total time limit of ' +
-           str(total_time_limit) + ' seconds'))
-    print(self.header)
+    self.solver_run.scheduler_output += (
+        ('Solving with a time limit of ' + str(time_limit) +
+        ' seconds of not improving the solution or a total time limit of ' +
+        str(total_time_limit) + ' seconds\n' + self.header))
     p = subprocess.Popen(
         ['clasp', '-t8', '--time-limit='+str(total_time_limit), self.opb_file],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
@@ -556,20 +558,27 @@ class Scheduler:
     output = []
     chars = []
     while p.poll() == None and current_time - last_activity <= time_limit:
-      if current_time - last_save > 1.0:
-        # TODO(mgeorg) Fill score variable
-        self.solver_run.solver_output = ''.join(output)
-        self.solver_run.save()
       if poll_obj.poll(0):
         last_activity = time.time()
         char = p.stdout.read(1).decode('ascii')
         if char == '\n':
-          output.append(''.join(chars) + '\n')
-          print(''.join(chars))
+          line = ''.join(chars) + '\n'
+          m = re.match(r'^o (-?\d+)', line)
+          if m:
+            last_save = current_time
+            self.solver_run.score = -int(m.group(1))
+            self.solver_run.solution = self.solver_run.SOLUTION
+            self.solver_run.solver_output = ''.join(output)
+            self.solver_run.save()
+          output.append(line)
           chars = []
         else:
           chars.append(char)
       else:
+        if current_time - last_save > 1.0:
+          last_save = current_time
+          self.solver_run.solver_output = ''.join(output)
+          self.solver_run.save()
         time.sleep(.1)
       current_time = time.time()
     if chars:
@@ -578,13 +587,14 @@ class Scheduler:
       p.terminate()
     (remaining_output, unused_stderr) = p.communicate()
     remaining_output = remaining_output.decode('ascii')
-    print(remaining_output)
     output.append(remaining_output)
     self.solver_run.solver_output = ''.join(output)
     self.solver_run.save()
-    self.ParseSolverOutput()
+    print('Ready to parse output')
+    return self.ParseSolverOutput()
 
   def ParseSolverOutput(self):
+    self.output_schedule = None
     x_names = []
     for line in self.solver_run.solver_output.splitlines():
       m = re.match('^v(?:\s+-?x\d+)+$', line)
@@ -592,64 +602,107 @@ class Scheduler:
         curr_vars = line.split(' ')
         assert curr_vars[0] == 'v'
         x_names.extend(curr_vars[1:])
-
-    self.x_solution = dict()
-    var_names = []
-    for x in x_names:
-      m = re.match('^(-)?(x\d+)$', x)
-      assert m
-      if not m.group(1):
-        self.x_solution[m.group(2)] = 1
-        var_name = self.our_name[m.group(2)]
-        var_names.append(var_name)
-
-    print('\n')
-    self.schedule = [None] * self.spec.num_slots
-    self.busy = [None] * self.spec.num_slots
-    pupil_schedule = dict()
-    for var_name in var_names:
-      m = re.match('^p(\d+)s(\d+)$', var_name)
-      assert m
-      pupil = int(m.group(1))
-      slot = int(m.group(2))
-      if pupil > 0:
-        self.schedule[slot] = pupil
-        if pupil not in pupil_schedule:
-          pupil_schedule[pupil] = [self.spec.slot_name[slot]]
+      m = re.match('^s (.*)$', line)
+      if m:
+        solution = m.group(1)
+        if solution == 'OPTIMUM FOUND':
+          self.solver_run.solution = self.solver_run.OPTIMAL
+        elif solution == 'UNSATISFIABLE':
+          self.solver_run.solution = self.solver_run.IMPOSSIBLE
+        elif solution == 'SATISFIABLE':
+          self.solver_run.solution = self.solver_run.SOLUTION
         else:
-          pupil_schedule[pupil].append(self.spec.slot_name[slot])
-      else:
-        self.busy[slot] = True
-    for pupil in range(1, self.spec.num_pupils):
-      print((self.spec.pupil_name[pupil] + ' -- ' +
-             ', '.join(pupil_schedule[pupil])))
-    print('\n\n')
-    for day in range(7):
-      for slot in self.spec.slots_by_day[day]:
-        pupil = self.schedule[slot]
-        instructor_preference = str(self.spec.pupil_slot_preference[0][slot])
-        extra = 'i' + instructor_preference + ' '
-        if pupil:
-          pupil_preference = str(self.spec.pupil_slot_preference[pupil][slot])
-          extra += 'p' + pupil_preference + ' '
-          print((extra + self.spec.slot_name[slot] + ' ' +
-                 self.spec.pupil_name[pupil]))
+          assert False, 'Unable to parse solution line of clasp output.'
+      m = re.match('^s (.*)$', line)
+      if m:
+        solution = m.group(1)
+        if solution == 'OPTIMUM FOUND':
+          self.solver_run.solution = self.solver_run.OPTIMAL
+        elif solution == 'UNSATISFIABLE':
+          self.solver_run.solution = self.solver_run.IMPOSSIBLE
+        elif solution == 'SATISFIABLE':
+          self.solver_run.solution = self.solver_run.SOLUTION
+        elif solution == 'UNKNOWN':
+          self.solver_run.solution = self.solver_run.NO_SOLUTION
         else:
-          extra += '   '
-          if self.busy[slot]:
-            print(extra + self.spec.slot_name[slot] + ' ---Lesson Ongoing---')
+          assert False, 'Unable to parse solution line of clasp output.'
+      m = re.match('^o (-?\d+)$', line)
+      if m:
+        self.solver_run.score = -int(m.group(1))
+
+    print('Parsed output, converting to schedule.')
+
+    text_schedule = ''
+    if(self.solver_run.solution in
+           [self.solver_run.SOLUTION, self.solver_run.OPTIMAL]):
+      self.x_solution = dict()
+      var_names = []
+      for x in x_names:
+        m = re.match('^(-)?(x\d+)$', x)
+        assert m
+        if not m.group(1):
+          self.x_solution[m.group(2)] = 1
+          var_name = self.our_name[m.group(2)]
+          var_names.append(var_name)
+
+      self.solver_run.scheduler_output += '\n'
+   
+      self.schedule = [None] * self.spec.num_slots
+      self.busy = [None] * self.spec.num_slots
+      pupil_schedule = dict()
+      for var_name in var_names:
+        m = re.match('^p(\d+)s(\d+)$', var_name)
+        assert m
+        pupil = int(m.group(1))
+        slot = int(m.group(2))
+        if pupil > 0:
+          self.schedule[slot] = pupil
+          if pupil not in pupil_schedule:
+            pupil_schedule[pupil] = [self.spec.slot_name[slot]]
           else:
-            if self.spec.pupil_slot_preference[0][slot] > 0:
-              print(extra + self.spec.slot_name[slot])
+            pupil_schedule[pupil].append(self.spec.slot_name[slot])
+        else:
+          self.busy[slot] = True
+      for pupil in range(1, self.spec.num_pupils):
+        text_schedule += (
+            (self.spec.pupil_name[pupil] + ' -- ' +
+             ', '.join(pupil_schedule[pupil])) + '\n')
+      text_schedule += '\n\n'
+      for day in range(7):
+        for slot in self.spec.slots_by_day[day]:
+          pupil = self.schedule[slot]
+          instructor_preference = str(self.spec.pupil_slot_preference[0][slot])
+          extra = 'i' + instructor_preference + ' '
+          if pupil:
+            pupil_preference = str(self.spec.pupil_slot_preference[pupil][slot])
+            extra += 'p' + pupil_preference + ' '
+            text_schedule += (
+                extra + self.spec.slot_name[slot] + ' ' +
+                self.spec.pupil_name[pupil] + '\n')
+          else:
+            extra += '   '
+            if self.busy[slot]:
+              text_schedule += (
+                  extra + self.spec.slot_name[slot] + ' ---Lesson Ongoing---\n')
             else:
-              print(extra + self.spec.slot_name[slot] + ' ***Busy***')
-      print('')
-
-    self.solver_run.schedule = 'Something Useful.'
+              if self.spec.pupil_slot_preference[0][slot] > 0:
+                text_schedule += (
+                    extra + self.spec.slot_name[slot])
+              else:
+                text_schedule += (
+                    extra + self.spec.slot_name[slot] + ' ***Busy***\n')
+        text_schedule += '\n'
+      self.EvaluateAllObjectives()
+      print('saving schedule.')
+      print(text_schedule)
+      self.output_schedule = solver.models.Schedule()
+      self.output_schedule.score = self.solver_run.score
+      self.output_schedule.schedule = text_schedule
+      self.output_schedule.created_by = self.solver_run
+      self.output_schedule.save()
     self.solver_run.state = self.solver_run.DONE
-    # TODO(mgeorg) actually parse the output.
-    self.solver_run.solution = self.solver_run.IMPOSSIBLE
     self.solver_run.save()
+    return self.output_schedule
 
   def EvaluateObjective(self, objective):
     total_penalty = 0
@@ -677,8 +730,10 @@ class Scheduler:
     for name, objective in self.all_objectives.items():
       penalty = self.EvaluateObjective(objective)
       total_penalty += penalty
-      print('Penalty ' + str(penalty) + ' for term \"' + name + '\"')
-    print('Total Penalty ' + str(total_penalty))
+      self.solver_run.scheduler_output += (
+          'Penalty ' + str(penalty) + ' for term \"' + name + '\"\n')
+    self.solver_run.scheduler_output += (
+        'Total Penalty ' + str(total_penalty) + '\n')
 
 
 def main():
@@ -693,7 +748,6 @@ def main():
   s.Prepare()
   print(str(s))
   s.Solve()
-  s.EvaluateAllObjectives()
   # TODO(mgeorg) Add automatic solution diversity based on changing
   # the penalty terms, or removing certain days.
   # TODO(mgeorg) make all the configuration information accessible.

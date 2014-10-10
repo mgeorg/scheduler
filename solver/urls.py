@@ -6,5 +6,6 @@ urlpatterns = patterns('',
   url(r'^availability/(?P<availability_id>\d+)/$', views.availability, name='availability'),
   url(r'^run/(?P<pk>\d+)/$', views.SolverRunView.as_view(), name='solver_run'),
   url(r'^start/$', views.start_run, name='start_run'),
+  url(r'^schedule/(?P<pk>\d+)/$', views.ScheduleView.as_view(), name='schedule'),
 )
 
