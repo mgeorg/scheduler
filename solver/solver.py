@@ -241,7 +241,7 @@ class Constraints:
 
 
 class Scheduler:
-  version = 0.1
+  version = 0.2
 
   def __init__(self, spec, pref, solver_run):
     self.solver_run = solver_run
