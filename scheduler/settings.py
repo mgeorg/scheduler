@@ -23,12 +23,11 @@ else:
   with open('/etc/django_secret_key_testing.txt') as f:
     SECRET_KEY = f.read().strip()
 
-# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = not PRODUCTION
 
 TEMPLATE_DEBUG = not PRODUCTION
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 # Application definition
 
@@ -66,24 +65,24 @@ DATABASES = {
     }
 }
 
-# LOGGING = {
-#  'version': 1,
-#  'disable_existing_loggers': False,
-#  'handlers': {
-#    'file': {
-#      'level': 'DEBUG',
-#      'class': 'logging.FileHandler',
-#      'filename': '/tmp/django_debug.log',
-#    },
-#  },
-#  'loggers': {
-#    'django.request': {
-#      'handlers': ['file'],
-#      'level': 'DEBUG',
-#      'propagate': True,
-#    },
-#  },
-# }
+LOGGING = {
+ 'version': 1,
+ 'disable_existing_loggers': False,
+ 'handlers': {
+   'file': {
+     'level': 'DEBUG',
+     'class': 'logging.FileHandler',
+     'filename': '/tmp/django_debug.log',
+   },
+ },
+ 'loggers': {
+   'django.request': {
+     'handlers': ['file'],
+     'level': 'DEBUG',
+     'propagate': True,
+   },
+ },
+}
 
 LANGUAGE_CODE = 'en-us'
 
