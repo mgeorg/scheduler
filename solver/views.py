@@ -18,7 +18,18 @@ class ScheduleView(generic.DetailView):
   model = Schedule
 
 def index(request):
-  return HttpResponse("Hello, world.")
+  all_availability = Availability.objects.all()
+  all_solver_options = SolverOptions.objects.all()
+  all_solver_run = SolverRun.objects.all()
+  all_schedule = Schedule.objects.all()
+  template = loader.get_template('solver/index.html')
+  context = RequestContext(request, {
+      'all_availability': all_availability,
+      'all_solver_options': all_solver_options,
+      'all_solver_run': all_solver_run,
+      'all_schedule': all_schedule,
+  })
+  return HttpResponse(template.render(context))
 
 def availability(request, availability_id):
   availability = get_object_or_404(Availability, pk=availability_id)

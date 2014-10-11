@@ -13,7 +13,7 @@ You do not have permission to view this page.
 </table>
 <form action="{% url 'solver:start_run' %}" method="post"><br>
 {% csrf_token %}
-<textarea name="csv_data" rows="20" width=100%>
+<textarea name="csv_data" rows="20" cols="150" width=100%>
 {% for table_row in table_data %}{{ table_row | join:"," }}
 {% endfor %}
 </textarea><br>
