@@ -65,6 +65,10 @@ DATABASES = {
     }
 }
 
+if PRODUCTION:
+  DJANGO_LOG_FILE = '/tmp/django_production.log'
+else:
+  DJANGO_LOG_FILE = '/tmp/django_debug.log'
 LOGGING = {
  'version': 1,
  'disable_existing_loggers': False,
@@ -72,7 +76,7 @@ LOGGING = {
    'file': {
      'level': 'DEBUG',
      'class': 'logging.FileHandler',
-     'filename': '/tmp/django_debug.log',
+     'filename': DJANGO_LOG_FILE,
    },
  },
  'loggers': {
