@@ -3,6 +3,6 @@
 You do not have permission to view this page.
 {% else %}
 <p>Created at: {{object.creation_time}} UTC</p>
-<p><div style='font-family: "Courier New", Courier, monospace'>{{ object.schedule | linebreaks }}</div></p>
+<pre>{{ object.schedule }}</pre>
 <p>score: {{ object.score }}</p>
 {% endif %}
