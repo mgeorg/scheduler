@@ -12,15 +12,21 @@ https://docs.djangoproject.com/en/1.7/ref/settings/
 import os
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/1.7/howto/deployment/checklist/
-with open('/etc/django_secret_key.txt') as f:
-  SECRET_KEY = f.read().strip()
+PRODUCTION = False
+
+# Generate file with
+# openssl rand -base64 100
+if PRODUCTION:
+  with open('/etc/django_secret_key.txt') as f:
+    SECRET_KEY = f.read().strip()
+else:
+  with open('/etc/django_secret_key_testing.txt') as f:
+    SECRET_KEY = f.read().strip()
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = not PRODUCTION
 
-TEMPLATE_DEBUG = True
+TEMPLATE_DEBUG = not PRODUCTION
 
 ALLOWED_HOSTS = []
 
@@ -60,28 +66,24 @@ DATABASES = {
     }
 }
 
-# Logging.
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'file': {
-            'level': 'DEBUG',
-            'class': 'logging.FileHandler',
-            'filename': '/tmp/django_debug.log',
-        },
-    },
-    'loggers': {
-        'django.request': {
-            'handlers': ['file'],
-            'level': 'DEBUG',
-            'propagate': True,
-        },
-    },
-}
-
-# Internationalization
-# https://docs.djangoproject.com/en/1.7/topics/i18n/
+# LOGGING = {
+#  'version': 1,
+#  'disable_existing_loggers': False,
+#  'handlers': {
+#    'file': {
+#      'level': 'DEBUG',
+#      'class': 'logging.FileHandler',
+#      'filename': '/tmp/django_debug.log',
+#    },
+#  },
+#  'loggers': {
+#    'django.request': {
+#      'handlers': ['file'],
+#      'level': 'DEBUG',
+#      'propagate': True,
+#    },
+#  },
+# }
 
 LANGUAGE_CODE = 'en-us'
 
@@ -92,8 +94,5 @@ USE_I18N = True
 USE_L10N = True
 
 USE_TZ = True
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/1.7/howto/static-files/
 
 STATIC_URL = '/static/'
