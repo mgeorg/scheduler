@@ -323,8 +323,8 @@ function nextStep() {
 <input type="checkbox" id="day_s" checked /> Saturday
 <input type="checkbox" id="day_u" checked /> Sunday<br>
 Each slot is <input type="text" id="slot_length" value="30" size="3"/>minutes long.<br>
-Start the day at: <input type="text" id="slot_start" value="9:30" size="7"/>.<br>
-End the day at: <input type="text" id="slot_end" value="10:30" size="7"/>. (You may also use AM or PM notation).<br>
+Start the day at: <input type="text" id="slot_start" value="7:30" size="7"/>.<br>
+End the day at: <input type="text" id="slot_end" value="17:30" size="7"/>. (You may also use AM or PM notation in this field.  All later fields must be filled out in 24 hour time).<br>
 <button onclick="createTimesByRange();">Create Times</button><br>
 <p></p>
 <textarea rows=10 cols=150 id="slot_times" /></textarea><br>
@@ -353,14 +353,9 @@ If you download the CSV data, you can open it with a spreadsheet program (such a
 <button onclick="downloadCsv();">Download CSV Data</button>
 <button onclick="nextStep();">Go to Next Step</button><br>
 <form action="new_availability/" id="next_step_form" method="POST">
-<textarea rows=30 cols=150 id="csv_data" /></textarea><br>
+{% csrf_token %}
+<textarea rows=30 cols=150 name="csv_data" id="csv_data" /></textarea><br>
 </form>
 
-<script>
-createTimesByRange();
-createSlots();
-// transposeTable();
-addPupil();
-</script>
 </body>
 </html>

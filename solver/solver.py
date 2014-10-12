@@ -96,7 +96,7 @@ class Constraints:
     for slot in range(self.num_slots):
       slot_name = row[slot+1]
       self.slot_name[slot] = slot_name
-      m = re.match(r'^\s*([MTWRFSU])\s+(\d+):(\d+)$', slot_name)
+      m = re.match(r'^\s*([MTWRFSU])\s*(\d+):(\d+)$', slot_name)
       assert m, 'Slot "%s" did not match required pattern' % slot_name
       day = self.day_to_number[m.group(1)]
       time = int(m.group(2))*60+int(m.group(3))
@@ -593,6 +593,10 @@ class Scheduler:
     print('Ready to parse output')
     return self.ParseSolverOutput()
 
+  def PaddedSlotName(self, slot):
+    slot_name = self.spec.slot_name[slot]
+    return '%-6s' % slot_name
+
   def ParseSolverOutput(self):
     self.output_schedule = None
     x_names = []
@@ -630,9 +634,7 @@ class Scheduler:
       if m:
         self.solver_run.score = -int(m.group(1))
 
-    print('Parsed output, converting to schedule.')
-
-    text_schedule = ''
+    text_schedule = 'Pupil Session Times.\n'
     if(self.solver_run.solution in
            [self.solver_run.SOLUTION, self.solver_run.OPTIMAL]):
       self.x_solution = dict()
@@ -668,6 +670,11 @@ class Scheduler:
             (self.spec.pupil_name[pupil] + ' -- ' +
              ', '.join(pupil_schedule[pupil])) + '\n')
       text_schedule += '\n\n'
+      text_schedule += 'Instructor Schedule.\n'
+      text_schedule += 'For reference the first column is the instructor preference value (i1, i2, i3, etc).\n'
+      text_schedule += 'The second column is the pupil preference value (p1, p2, p3, etc).\n'
+      text_schedule += 'The third column is the session time.\n'
+      text_schedule += 'And the fourth column is the pupil name.\n'
       for day in range(7):
         for slot in self.spec.slots_by_day[day]:
           pupil = self.schedule[slot]
@@ -677,24 +684,22 @@ class Scheduler:
             pupil_preference = str(self.spec.pupil_slot_preference[pupil][slot])
             extra += 'p' + pupil_preference + ' '
             text_schedule += (
-                extra + self.spec.slot_name[slot] + ' ' +
+                extra + self.PaddedSlotName(slot) + ' ' +
                 self.spec.pupil_name[pupil] + '\n')
           else:
             extra += '   '
             if self.busy[slot]:
               text_schedule += (
-                  extra + self.spec.slot_name[slot] + ' ---Lesson Ongoing---\n')
+                  extra + self.PaddedSlotName(slot) + ' ---Lesson Ongoing---\n')
             else:
               if self.spec.pupil_slot_preference[0][slot] > 0:
                 text_schedule += (
-                    extra + self.spec.slot_name[slot])
+                    extra + self.PaddedSlotName(slot) + '\n')
               else:
                 text_schedule += (
-                    extra + self.spec.slot_name[slot] + ' ***Busy***\n')
+                    extra + self.PaddedSlotName(slot) + ' ***Busy***\n')
         text_schedule += '\n'
       self.EvaluateAllObjectives()
-      print('saving schedule.')
-      print(text_schedule)
       self.output_schedule = solver.models.Schedule()
       self.output_schedule.score = self.solver_run.score
       self.output_schedule.schedule = text_schedule

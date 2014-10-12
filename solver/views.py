@@ -36,9 +36,17 @@ def availability_initial(request):
   context = RequestContext(request, {})
   return HttpResponse(template.render(context))
 
+def new_availability(request):
+  availability = Availability()
+  availability.csv_data = request.POST['csv_data']
+  availability.save()
+
+  return HttpResponseRedirect(reverse('solver:availability',
+                                      args=(availability.id,)))
+
 def availability(request, availability_id):
   availability = get_object_or_404(Availability, pk=availability_id)
-  parser = csv.reader(availability.csv_table_data.splitlines(True))
+  parser = csv.reader(availability.csv_data.splitlines(True))
   table_data = []
   for row in parser:
     if not row:
@@ -55,7 +63,7 @@ def start_run(request):
   availability = Availability()
   solver_options = SolverOptions()
 
-  availability.csv_table_data = request.POST['csv_data']
+  availability.csv_data = request.POST['csv_data']
 
   solver_options.arrive_late_bonus = request.POST['arrive_late_bonus']
   solver_options.leave_early_bonus = request.POST['leave_early_bonus']
@@ -77,7 +85,7 @@ def start_run(request):
   solver_run.save()
 
   # Run the solver on the data.
-  parser = csv.reader(availability.csv_table_data.splitlines(True))
+  parser = csv.reader(availability.csv_data.splitlines(True))
   table_data = []
   for row in parser:
     if not row:
