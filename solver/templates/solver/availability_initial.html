@@ -313,7 +313,7 @@ function nextStep() {
 </head>
 <body>
 <h1>Step 1: Create the Scheduling Constraints and Preferences.</h1>
-<p><a href="index/">Index of all database objects.</a></p>
+<p><a href="{% url 'solver:index' %}">index of all database objects.</a></p>
 <p>You need to create some times.  Either fill out the following fields and press the button, or enter in every start time manually.</p>
 <input type="checkbox" id="day_m" checked /> Monday
 <input type="checkbox" id="day_t" checked /> Tuesday
@@ -345,8 +345,6 @@ Default pupil value: <input type="text" id="default_pupil_value" value="1" size=
 </tbody>
 </table><br>
 
-</div>
-
 <p>The following text area can be used to save your data or slightly tweak it.
 If you download the CSV data, you can open it with a spreadsheet program (such as <a href="http://docs.google.com/">google docs</a>).  After editing the data, you can save it again in CSV format and then enter it in this text box again (ignoring all the earlier steps on this page).  When you are ready to move on to the next stage of creating your schedule, press the button "Go to Next Step".  When you do this, the data you have in the CSV data field will be saved permanently, and publicly accessible on the server.  Please make sure you are not submitting any confidential data (also, please note, that if I wasn't nice, everything you typed on this page would already be saved).</p>
 <button onclick="saveTable();">Make CSV data</button>
@@ -356,6 +354,8 @@ If you download the CSV data, you can open it with a spreadsheet program (such a
 {% csrf_token %}
 <textarea rows=30 cols=150 name="csv_data" id="csv_data" /></textarea><br>
 </form>
+
+</div>
 
 </body>
 </html>

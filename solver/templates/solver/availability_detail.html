@@ -1,8 +1,8 @@
-<h1>Availability Detail page for id {{ availability.id }}</h1>
+<h1>Step 2: Generic Scheduling Preferences (Constraint set with id {{ availability.id }})</h1>
 {% if availability.deleted %}
 You do not have permission to view this page.
 {% else %}
-<table>
+<table hidden>
 {% for table_row in table_data %}
   <tr>
   {% for table_cell in table_row %}
@@ -17,12 +17,23 @@ You do not have permission to view this page.
 {% for table_row in table_data %}{{ table_row | join:"," }}
 {% endfor %}
 </textarea><br>
-<input type="text" name="arrive_late_bonus" value="310" /><br>
-<input type="text" name="leave_early_bonus" value="320" /><br>
-<input type="text" name="day_off_bonus" value="500" /><br>
-<input type="text" name="no_break_penalty" value="100" /><br>
-<input type="text" name="pupil_preference_penalty" value="100,201,403" /><br>
-<input type="text" name="instructor_preference_penalty" value="305,620,1300" /><br>
+Arrive Late Bonus: <input type="text" name="arrive_late_bonus" value="310" /><br>
+Leave Early Bonus: <input type="text" name="leave_early_bonus" value="320" /><br>
+Day Off Bonus: <input type="text" name="day_off_bonus" value="500" /><br>
+No Break Penalty (not currently implemented): <input type="text" name="no_break_penalty" value="100" /><br>
+Pupil Preference Penalty: <input type="text" name="pupil_preference_penalty" value="100,201,403" /><br>
+Instructor Preference Penalty: <input type="text" name="instructor_preference_penalty" value="305,620,1300" /><br>
 <input type="submit" value="Solve" /><br>
+Solving this problem may take some time (up to 10 minutes).  Do not reload or leave the page after pressing the "Solve" button.  You can see the current state of the run by going to the <a href="{% url 'solver:index' %}">index</a> page and clicking on the latest "solver_run".   Future version of this app will show this information as it becomes available.<br>
+<br>
+Unimplemented features: X value for instructor preferences.<br>
+Unimplemented features: 0 value for any preferences.<br>
+Unimplemented features: No break penalties (other than default).<br>
+Unimplemented features: Generic Constraints (get me 30min off in this 120min chunk or 30min off in that 60min chunk, etc).<br>
+Unimplemented features: non-30min default session length.<br>
+Unimplemented features: Explain session length (name with [60min] in them).<br>
+Unimplemented features: Explain multiple sessions on different days (name with [x2] in them).<br>
+Unimplemented features: Support penalty for consecutive day lessons.<br>
+Unimplemented features: Make schedule page have information from the schedule run (such as whether it was optimal).<br>
 </form>
 {% endif %}
