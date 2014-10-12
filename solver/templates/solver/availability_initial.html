@@ -1,0 +1,366 @@
+<html>
+<head>
+<script>
+function parseTime(time_str) {
+  var time_re = /^\s*(\d{1,2}):(\d{2})\s*(am|pm)?\s*$/i;
+  var match = time_re.exec(time_str);
+  var time = null;
+  var offset = 0;
+  if(match) {
+    if(match[3]) {
+      if(match[3].match(/^pm$/i)) {
+        offset = 12*60;
+      }
+    }
+    time = parseInt(match[1])*60 + parseInt(match[2]) + parseInt(offset);
+    if (time < 0) {
+      time = 0;
+    }
+    if (time > 24*60) {
+      time = 24*60;
+    }
+  }
+  return time;
+}
+
+function zeroPad(num, size) {
+  var str = num.toString();
+  while (str.length < size) {
+    str = "0" + str;
+  }
+  return str;
+}
+
+function timeToString(time) {
+  return Math.floor(time/60) + ':' + zeroPad(time % 60, 2);
+}
+
+function createInput(str, size) {
+  var elem = document.createElement('input');
+  elem.type = 'text';
+  elem.value = str;
+  elem.size = size;
+  return elem;
+}
+
+function createTimesByRange() {
+  var slot_length = parseInt(document.getElementById('slot_length').value);
+  var slot_start = parseTime(document.getElementById('slot_start').value);
+  var slot_end = parseTime(document.getElementById('slot_end').value);
+
+  var times = '';
+  for (var time = slot_start; time <= slot_end; time += slot_length) { 
+    times += timeToString(time) + ' ';
+  }
+  var day_times = '';
+  if (document.getElementById('day_m').checked) {
+    day_times += 'Monday    ';
+    day_times += times + '\n';
+  }
+  if (document.getElementById('day_t').checked) {
+    day_times += 'Tuesday   ';
+    day_times += times + '\n';
+  }
+  if (document.getElementById('day_w').checked) {
+    day_times += 'Wednesday ';
+    day_times += times + '\n';
+  }
+  if (document.getElementById('day_r').checked) {
+    day_times += 'Thursday  ';
+    day_times += times + '\n';
+  }
+  if (document.getElementById('day_f').checked) {
+    day_times += 'Friday    ';
+    day_times += times + '\n';
+  }
+  if (document.getElementById('day_s').checked) {
+    day_times += 'Saturday  ';
+    day_times += times + '\n';
+  }
+  if (document.getElementById('day_u').checked) {
+    day_times += 'Sunday    ';
+    day_times += times + '\n';
+  }
+  document.getElementById('slot_times').value = day_times;
+}
+
+function createSlots() {
+  document.getElementById('table_div').hidden = false;
+  all_times = document.getElementById('slot_times').value.split(/[ \r\n]+/);
+
+  availability_table = document.getElementById('availability_table');
+  while (availability_table.lastChild) {
+    availability_table.removeChild(availability_table.lastChild);
+  }
+  var table_header = document.createElement('tr');
+  availability_table.appendChild(table_header);
+  var instructor1_row = document.createElement('tr');
+  availability_table.appendChild(instructor1_row);
+  
+  var elem = document.createElement('td');
+  var node = document.createTextNode('Schedule');
+  elem.appendChild(node);
+  table_header.appendChild(elem);
+
+  var elem = document.createElement('td');
+  var node = document.createTextNode('Instructor1');
+  elem.appendChild(node);
+  instructor1_row.appendChild(elem);
+
+  var current_day = 'M';
+  var last_day = null;
+  var last_input = null;
+  for (var time_index = 0; time_index < all_times.length; time_index++) {
+    var value = all_times[time_index];
+    if (value.match(/monday/i)) {
+      current_day = 'M';
+    } else if (value.match(/tuesday/i)) {
+      current_day = 'T';
+    } else if (value.match(/wednesday/i)) {
+      current_day = 'W';
+    } else if (value.match(/thursday/i)) {
+      current_day = 'R';
+    } else if (value.match(/friday/i)) {
+      current_day = 'F';
+    } else if (value.match(/saturday/i)) {
+      current_day = 'S';
+    } else if (value.match(/sunday/i)) {
+      current_day = 'U';
+    } else {
+      var time = parseTime(value);
+      if (time != null) {
+        var elem = document.createElement('td');
+        var node = document.createTextNode(
+            current_day + timeToString(time));
+        elem.appendChild(node);
+        table_header.appendChild(elem);
+
+        var elem = document.createElement('td');
+        var node = createInput("1", 1);
+        last_input = node;
+        elem.appendChild(node);
+        instructor1_row.appendChild(elem);
+      }
+    }
+    if (last_day != null && last_day != current_day && last_input != null) {
+      instructor1_row.removeChild(instructor1_row.lastChild);
+      var elem = document.createElement('td');
+      var node = document.createTextNode('');
+      elem.appendChild(node);
+      instructor1_row.appendChild(elem);
+    }
+    last_day = current_day;
+  }
+  if (instructor1_row.lastChild.childNodes[0].nodeName == "INPUT") {
+    instructor1_row.removeChild(instructor1_row.lastChild);
+    var elem = document.createElement('td');
+    var node = document.createTextNode('');
+    elem.appendChild(node);
+    instructor1_row.appendChild(elem);
+  }
+}
+
+table_transposed = false;
+
+function transposeTable() {
+  var new_availability_table = document.createElement('tbody');
+  var availability_table = document.getElementById('availability_table');
+
+  table_transposed = !table_transposed;
+
+  var num_row = availability_table.childNodes.length;
+  var num_cell = 0;
+  for (var row = 0; row < num_row; row++) {
+    var row_elem = availability_table.childNodes[row];
+    if (num_cell < row_elem.childNodes.length) {
+      num_cell = row_elem.childNodes.length;
+    }
+  }
+
+  for (var i = 0; i < num_cell; i++) {
+    new_availability_table.appendChild(document.createElement('tr'));
+  }
+
+  for (var row = 0; row < num_row; row++) {
+    var row_elem = availability_table.childNodes[row];
+    for (var cell = 0; cell < num_cell; cell++) {
+      var elem = document.createElement('td');
+      if (cell < row_elem.childNodes.length) {
+        row_elem.childNodes[cell];
+        while (row_elem.childNodes[cell].childNodes.length > 0) {
+          elem.appendChild(row_elem.childNodes[cell].childNodes[0]);
+        }
+      } else {
+        var node = document.createTextNode('');
+        elem.appendChild(node);
+      }
+      new_availability_table.childNodes[cell].appendChild(elem);
+    }
+  }
+
+  table_node = availability_table.parentNode;
+  table_node.removeChild(availability_table);
+  new_availability_table.id = 'availability_table';
+  table_node.appendChild(new_availability_table);
+}
+
+function addPupil() {
+  var initially_transposed = table_transposed;
+  if (table_transposed) {
+    transposeTable();
+  }
+
+  var availability_table = document.getElementById('availability_table');
+  var default_value = document.getElementById('default_pupil_value').value;
+  var instructor1_row = availability_table.childNodes[1];
+
+  var num_row = availability_table.childNodes.length;
+  var num_cell = 0;
+  for (var row = 0; row < num_row; row++) {
+    var row_elem = availability_table.childNodes[row];
+    if (num_cell < row_elem.childNodes.length) {
+      num_cell = row_elem.childNodes.length;
+    }
+  }
+
+  var row = document.createElement('tr');
+  availability_table.appendChild(row);
+
+  for (var cell = 0; cell < num_cell; cell++) {
+    var cell_elem = document.createElement('td');
+    if (cell == 0) {
+      cell_elem.appendChild(createInput('Pupil Name', 10));
+    } else if (instructor1_row.childNodes[cell].childNodes[0].nodeName == "INPUT") {
+      cell_elem.appendChild(createInput(default_value, 1));
+    } else {
+      cell_elem.appendChild(document.createTextNode(''));
+    }
+    row.appendChild(cell_elem);
+  }
+
+  if (initially_transposed) {
+    transposeTable();
+  }
+}
+
+function saveTable() {
+  var initially_transposed = table_transposed;
+  if (table_transposed) {
+    transposeTable();
+  }
+
+  var csv = '';
+  var availability_table = document.getElementById('availability_table');
+
+  var num_row = availability_table.childNodes.length;
+  var num_cell = 0;
+  for (var row = 0; row < num_row; row++) {
+    var row_elem = availability_table.childNodes[row];
+    if (num_cell < row_elem.childNodes.length) {
+      num_cell = row_elem.childNodes.length;
+    }
+  }
+
+  for (var row = 0; row < num_row; row++) {
+    var row_elem = availability_table.childNodes[row];
+    for (var cell = 0; cell < num_cell; cell++) {
+      if (cell >= row_elem.childNodes.length) {
+        var elem = document.createElement('td');
+        var node = document.createTextNode('');
+        elem.appendChild(node);
+        row_elem.appendChild(elem);
+      }
+      var cell_elem = row_elem.childNodes[cell].childNodes[0];
+      if (cell != 0) {
+        csv += ',';
+      }
+      if (cell_elem.nodeName == 'INPUT') {
+        csv += cell_elem.value;
+      } else {
+        csv += cell_elem.textContent;
+      }
+    }
+    csv += '\n';
+  }
+  document.getElementById('csv_data').value = csv;
+
+  if (initially_transposed) {
+    transposeTable();
+  }
+}
+
+
+function downloadCsv() {
+  var csv = document.getElementById('csv_data').value;
+  if (csv.length <= 0) {
+    alert('There is no csv data yet, perhaps you need to press the "Make CSV Data" button.');
+  } else {
+    window.open('data:text/csv;charset=utf-8,' +
+                escape(document.getElementById('csv_data').value));
+  }
+}
+
+function nextStep() {
+  var csv = document.getElementById('csv_data').value;
+  if (csv.length <= 0) {
+    alert('There is no csv data yet, perhaps you need to press the "Make CSV Data" button.');
+  } else {
+    document.getElementById('next_step_form').submit();
+  }
+}
+
+</script>
+</head>
+<body>
+<h1>Step 1: Create the Scheduling Constraints and Preferences.</h1>
+<p><a href="index/">Index of all database objects.</a></p>
+<p>You need to create some times.  Either fill out the following fields and press the button, or enter in every start time manually.</p>
+<input type="checkbox" id="day_m" checked /> Monday
+<input type="checkbox" id="day_t" checked /> Tuesday
+<input type="checkbox" id="day_w" checked /> Wednesday
+<input type="checkbox" id="day_r" checked /> Thursday
+<input type="checkbox" id="day_f" checked /> Friday
+<input type="checkbox" id="day_s" checked /> Saturday
+<input type="checkbox" id="day_u" checked /> Sunday<br>
+Each slot is <input type="text" id="slot_length" value="30" size="3"/>minutes long.<br>
+Start the day at: <input type="text" id="slot_start" value="9:30" size="7"/>.<br>
+End the day at: <input type="text" id="slot_end" value="10:30" size="7"/>. (You may also use AM or PM notation).<br>
+<button onclick="createTimesByRange();">Create Times</button><br>
+<p></p>
+<textarea rows=10 cols=150 id="slot_times" /></textarea><br>
+<button onclick="createSlots();">Create Availability Table</button><br>
+
+<div id="table_div" hidden>
+
+<p>The following table lists all slot start times and preferences for instructor and pupils.  An empty value means the instructor or pupil is not available for that slot.  A value of 1 means the instructor or pupil is happy to take this slot.  A value of 2 means that the instructor or pupil will take that slot if forced, but they would prefer another slot.  A value of 3 through 5 means the instructor or pupil is increasingly unhappy with this slot (each number is twice as unhappy as the last).</p>
+<p>Note that each session goes until the next session start time.  The instructor cannot be available for the last "start time" of each day (since this is actually the day end time).</p>
+<p>If you have a pupil that takes lessons that are longer than a single slot, placing a 1 in a slot means that they are able to start (their longer lesson) at that time, even if it goes into a slot that they have not marked with a 1.  For the instructor, however, a longer lesson will only be scheduled on slots where every slot is marked as available.</p>
+<p>For the instructor, a slot that is left blank means "I want to be free at this time".  If instead what you mean is "I have something to do at this time that will keep me busy" then fill the slot with an X value.  This makes a difference for optimizations where the algorithm tries to have you come in late, or take the entire day off.  So, if you have a mandatory school meeting at 9:00-9:30 then mark it as an X, but if you want 10:00-10:30 off for watching a screwball game leave it blank.</p>
+<button onclick="addPupil();">Add Pupil</button> 
+Default pupil value: <input type="text" id="default_pupil_value" value="1" size=1 />
+<button onclick="transposeTable();">Exchange Rows and Columns</button><br>
+<div id="table_transposed" hidden value="0"></div>
+<table>
+<tbody id="availability_table">
+</tbody>
+</table><br>
+
+</div>
+
+<p>The following text area can be used to save your data or slightly tweak it.
+If you download the CSV data, you can open it with a spreadsheet program (such as <a href="http://docs.google.com/">google docs</a>).  After editing the data, you can save it again in CSV format and then enter it in this text box again (ignoring all the earlier steps on this page).  When you are ready to move on to the next stage of creating your schedule, press the button "Go to Next Step".  When you do this, the data you have in the CSV data field will be saved permanently, and publicly accessible on the server.  Please make sure you are not submitting any confidential data (also, please note, that if I wasn't nice, everything you typed on this page would already be saved).</p>
+<button onclick="saveTable();">Make CSV data</button>
+<button onclick="downloadCsv();">Download CSV Data</button>
+<button onclick="nextStep();">Go to Next Step</button><br>
+<form action="new_availability/" id="next_step_form" method="POST">
+<textarea rows=30 cols=150 id="csv_data" /></textarea><br>
+</form>
+
+<script>
+createTimesByRange();
+createSlots();
+// transposeTable();
+addPupil();
+</script>
+</body>
+</html>

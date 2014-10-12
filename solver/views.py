@@ -31,6 +31,11 @@ def index(request):
   })
   return HttpResponse(template.render(context))
 
+def availability_initial(request):
+  template = loader.get_template('solver/availability_initial.html')
+  context = RequestContext(request, {})
+  return HttpResponse(template.render(context))
+
 def availability(request, availability_id):
   availability = get_object_or_404(Availability, pk=availability_id)
   parser = csv.reader(availability.csv_table_data.splitlines(True))

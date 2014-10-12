@@ -3,13 +3,16 @@ from django.db import models
 class Availability(models.Model):
   creation_time = models.DateTimeField(auto_now_add=True)
   deleted = models.BooleanField(default=False)
+  locked = models.BooleanField(default=False)
+  slot_times = models.TextField()
+  constraints = models.TextField()
   csv_table_data = models.TextField()
 
 class SolverOptions(models.Model):
   arrive_late_bonus = models.IntegerField()
   leave_early_bonus = models.IntegerField()
   day_off_bonus = models.IntegerField()
-  no_break_penalty = models.CharField(max_length=1000)
+  no_break_penalty = models.CharField(max_length=100)
   pupil_preference_penalty_list = models.CommaSeparatedIntegerField(
       max_length=100)
   instructor_preference_penalty_list = models.CommaSeparatedIntegerField(
