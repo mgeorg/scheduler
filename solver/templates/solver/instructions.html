@@ -3,56 +3,12 @@
 <h1>Free Online Session Scheduler ({{version_number}})</h1>
 <p>Everything you enter on this site becomes publicly accessible.  I reserve the right to keep your data for as long or as short as I feel like it.  If you have confidential information (possibly your pupil's names, if they are unique) please don't upload them here (I don't want to be responsible for someone knowing who will be where at what time).  Please be aware that routine web logging captures your IP address which gives a general geographical indication of where you are accessing this site from.  Don't upload anything that when coupled with this information would compromise someone's safety.  If you are worried, please rename your pupils A, B, C, etc.</p>
 <p>This web application solves what is known as the timetabling problem.  In its simplest form, this application will determine the best times to schedule all of your pupils given their preferences and constraints and your preferences and constraints.</p>
-<p>Follow <a href="solver/">this</a> link to go to the application.  Unfortunately, the following documentation and this website don't match up perfectly.  I'm in the process of rewriting this program so that it's easier to use.  I acknowledge that it's quite complicated right now.  This documentation is for the command line version of this application.  The file it is refering to is a csv file of a table that you need to enter in on the websites.  <a href="solver/">Step 1</a> will help you make this csv file.</p>
+<p>Follow <b><a href="solver/">this</a></b> link to go to the application.  I know this website is quite complicated to use, if you have suggestions for how to improve it, please send me an email at manfred.georg@gmail.com .</p>
 <p>This project is distributed under the <a href="http://www.gnu.org/licenses/gpl.html">GPL3</a>: <a href="https://github.com/mgeorg/scheduler">source code</a> is available for free on <a href="http://github.com/">github</a>.  Meaning, you can create a copy of this website if you feel like it (and you can be reasonably sure I won't start charging money or that this application will suddenly go away).</p>
 <h2>General Instructions</h2>
 <ol>
-<li>This program is very unforgiving about formatting.  If the instructions say that the first cell of some row needs a specific value in it, use exactly that value (excluding the quotes).  Do not add spaces, don't use a different case, don't change it in the slightest.  It won't work.</li>
-<li>Follow these instructions carefully.  If the instructions say you should use a 1 character code for each day of the week and "U" stands for Sunday, then use "U".  Don't use "Sun" and expect the program to understand, it won't.</li>
+<li>This program is very unforgiving about formatting.  If you encounter an error, check that you haven't added or removed spaces, added or removed commas, changed the capitalization of something, used non-single letter abbreviations for days of the week, changed the order of start times so they aren't chronological or any number of other minor changes.  Let me know, if something is giving you trouble.</li>
+<li>Follow the instructions carefully.  If the instructions say you should use a 1 character code for each day of the week and "U" stands for Sunday, then use "U".  Don't use "Sun" and expect the program to understand, it won't.</li>
 </ol>
-<h2>The first row (The time slots)</h2>
-<ol>
-<li>The first cell must be exactly "Schedule".</li>
-<li>Every other cell must be a one character code for the weekday (M, T, W, R, F, S, U) followed by a space followed by a time in 24 hour format with a colon between the hour and the minute (e.g. "17:30").</li>
-<li>Each time slot must be after the last time slot.</li>
-<li>Each time slot extends until the next time slot.  This means that you MUST create at least one time slot at the end of each day which you set yourself as unavailable for (otherwise a 1 hour lessen may be scheduled in a 30 min slot).</li>
-</ol>
-<h2>The second row (Instructor preferences)</h2>
-<ol>
-<li>The first cell must be exactly "Available".</li>
-<li>Every other cell must be empty or filled with exactly "1", "2", "3", "4", "5".</li>
-<li>Empty means that the instructor is not available at that time.</li>
-<li>"1" means that the instructor would like to teach at that time.</li>
-<li>"2" means that the instructor could teach at that time but would rather be watching monday night football or some other low priority but desirable thing that occurs AT THAT TIME (don't use this to ineffectually try to schedule a lunch or tell the system that you don't like coming in in the morning, there are better mechanisms available for specifying those preferences).</li>
-<li>Numbers about 2 are like "2" but progressively more so.  Each preference step is twice as undesirable as the last.  I recommend you only use the numbers 1, 2, and 3.</li>
-<li>If you have pupils with longer lessons (1 hour session when the slots are 30 min long) then the program will only schedule the pupil at 10:00 if you are available at both 10:00 and 10:30.</li>
-</ol>
-<h2>Additional rows (Pupil preferences)</h2>
-<ol>
-<li>The first cell must be the pupil's name such as "Jane Doe".  Any utf-8 encoded string is valid (Chinese characters, arabic, and Klingon are all valid).</li>
-<li>All additional cells specify preference with "1" being ideal, "2" being a second choice slot, and "3" being a third choice slot.  Penalties for scheduling on a less ideal slot can be specified (and are generally much less important than instructor preferences)</li>
-<li>For pupils with longer lessons (1 hour session when slots are 30 min).  Be aware that the preference is for STARTING a session at the specified time.  If you specify "1" at 11:00 and "" (meaning don't schedule) at 11:30 then the program may schedule a lesson from 11:00-12:00 but not 11:30-12:30.  This is slightly different than how instructor preferences are specified (instructor preferences are always about exactly only the specified slot).</li>
-<li>Each pupil may specify as many "" (empty), "1", "2", and "3" cells as they want.  When setting schedules, you may or may not expose the full range of preferences to the pupils and you may or may not restrict the number of "2" and "3" you allow them to specify.  It's entirely your choice, the program doesn't care at all.  However, note that a pupil who specifies "3" for each slot might as well have specified "1" for each slot.</li>
-</ol>
-
-
-Lunch preferences L.
-Complicated preferences A1,A1,A1,A2,A2,A2
-Lets say that you have a deal with your spouse that on Tuesdays you EITHER bring the little rugrat to pre-school OR you cook lasagna in the evening.  Clearly, you can't schedule pupils both in the morning and in the evening.  However, which is better for your other scheduling needs?  You can let the program know about your marital constraints by making Tuesday morning and Tuesday evening mutually exclusive.  Pick a letter (for example "A") which will solve this particular constraint.  Pick a number (for example "1") to designate a set of slots which if they were all empty would solve your problem.  Meaning, mark all slots that you would need free in the morning in order to bring your child to school with "A1".  Pick another number (for example "2") and fill each slot which solves your problem in a different way with "A2".  Use as many numbers as necessary.  The slots marked with "A1" do not need to be at the same time or on the same day, so make sure that you don't reuse a letter.  If a single slot becomes part of multiple constraints you can specify them all by using a comma "," to separate the values (e.g. "A2,B1,C3,D2").
-<h2>Specifying Preferences</h2>
-<ol>
-<li>Not all schedules are equally desirable.</li>
-<li>Different instructors will have different preferences.</li>
-<li>Each schedule has a penalty or bonus associated with it corresponding to how well it fits the instructors (and pupil's preferences).</li>
-<li>If you like to go home early, you can assign a bonus for every minute you leave earlier in the day.</li>
-<li>If you would like to come in late, you can assign a bonus for every minute you start later in the day.</li>
-<li>If you don't like working long shifts, you can specify a penalty for long sequences of sessions without a break.</li>
-<li>You can assign how much of a penalty (per minute) scheduling a session on a slot you have marked with a number higher than 1.</li>
-<li>You can assign how much of a penalty (per minute) scheduling a session on a slot a pupil has marked with a number higher than 1.</li>
-<li>Each of these bonuses and penalties has a default value in one of 3 profiles ("I like sleeping in", "I like leaving early", "I like lots of breaks").  Feel free to use a profile or to set each value yourself.</li>
-</ol>
-Complicated constraints need to support specifying how many groups must be available.<br>
-Bonus for missing an entire day.<br>
-
 </body>
 </html>

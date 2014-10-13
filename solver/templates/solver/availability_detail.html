@@ -1,28 +1,91 @@
-<h1>Step 2: Generic Scheduling Preferences (Constraint set with id {{ availability.id }})</h1>
+<script>
+num_complex_row_added = 0;
+
+function addComplexOrConstraint(base_button) {
+  var elem = document.createElement('input');
+  elem.type = 'text';
+  elem.name = 'complex_constraint';
+  elem.value = base_button.previousSibling.value;
+  base_button.parentNode.insertBefore(document.createTextNode(' Or '), base_button);
+  base_button.parentNode.insertBefore(elem, base_button);
+}
+
+function addComplexConstraint(constraint) {
+  var constraint_row = document.createElement('div');
+  constraint_row.style.display = 'table-row';
+  var constraint_cell1 = document.createElement('div');
+  constraint_cell1.style.display = 'table-cell';
+  constraint_row.appendChild(constraint_cell1);
+  var constraint_cell2 = document.createElement('div');
+  constraint_cell2.style.display = 'table-cell';
+  if (num_complex_row_added > 0) {
+    constraint_cell2.appendChild(document.createTextNode('And '));
+  }
+  constraint_row.appendChild(constraint_cell2);
+  var constraint_cell3 = document.createElement('div');
+  constraint_cell3.style.display = 'table-cell';
+  constraint_row.appendChild(constraint_cell3);
+
+  var elem = document.createElement('input');
+  elem.type = 'text';
+  elem.name = 'complex_constraint';
+  elem.value = constraint;
+  constraint_cell3.appendChild(elem);
+
+  var elem = document.createElement('button');
+  elem.type = 'button';
+  elem.onclick = function() {addComplexOrConstraint(elem);};
+  elem.appendChild(document.createTextNode('Or...'));
+  constraint_cell3.appendChild(elem);
+
+  var table = document.getElementById('complex_constraint');
+  table.appendChild(constraint_row);
+
+  num_complex_row_added++;
+}
+
+function addLunchBreak() {
+  addComplexConstraint('30min M 11:30-13:30');
+  addComplexConstraint('30min T 11:30-13:30');
+  addComplexConstraint('30min W 11:30-13:30');
+  addComplexConstraint('30min R 11:30-13:30');
+  addComplexConstraint('30min F 11:30-13:30');
+  addComplexConstraint('30min S 11:30-13:30');
+  addComplexConstraint('30min U 11:30-13:30');
+}
+</script>
+<h1>Step 2: Generic Scheduling Preferences (id {{ availability.id }})</h1>
+The CSV data from <a href="{% url 'solver:initial' %}">Step 1</a>.  You probably don't want to edit this manually.  A later version of this application will provide a nice view for editing this data again.<br>
+
 {% if availability.deleted %}
 You do not have permission to view this page.
 {% else %}
-<table hidden>
-{% for table_row in table_data %}
-  <tr>
-  {% for table_cell in table_row %}
-    <td>{{table_cell}}</td>
-  {% endfor %}
-  </tr>
-{% endfor %}
-</table>
-<form action="{% url 'solver:start_run' %}" method="post"><br>
+
+<form action="{% url 'solver:start_run' %}" method="post">
 {% csrf_token %}
-<textarea name="csv_data" rows="20" cols="150" width=100%>
+<textarea name="csv_data" rows="5" cols="150" width=100%>
 {% for table_row in table_data %}{{ table_row | join:"," }}
 {% endfor %}
 </textarea><br>
+<br>
+Generic penalty and bonus terms.<br>
 Arrive Late Bonus: <input type="text" name="arrive_late_bonus" value="310" /><br>
 Leave Early Bonus: <input type="text" name="leave_early_bonus" value="320" /><br>
 Day Off Bonus: <input type="text" name="day_off_bonus" value="500" /><br>
-No Break Penalty (not currently implemented): <input type="text" name="no_break_penalty" value="100" /><br>
-Pupil Preference Penalty: <input type="text" name="pupil_preference_penalty" value="100,201,403" /><br>
-Instructor Preference Penalty: <input type="text" name="instructor_preference_penalty" value="305,620,1300" /><br>
+No Break Penalty (not currently implemented): <input type="text" name="no_break_penalty" value="0: 330, 30: 330, 31: 0, 240: 0, 300: 200, 330: 400, 360: 800, 420:1600, 480:3200, 540: 6400, 600: 12800, 660: 25600" size=100 /><br>
+Pupil Preference Penalty (values correspond to 2,3,4,5,etc): <input type="text" name="pupil_preference_penalty" value="100,201,403,807" /><br>
+Instructor Preference Penalty (values correspond to 2,3,4,5,etc): <input type="text" name="instructor_preference_penalty" value="305,620,1290,2600" /><br>
+<div id="complex_constraint" style='display: table;'>
+<div style='display: table-row;'>
+<div style='display: table-cell;'>Complex Constraints (not implemented): </div>
+<div style='display: table-cell;'></div>
+<div style='display: table-cell;'>
+<button onclick="addComplexConstraint('30min M 11:30-13:30');" type="button" >Add Constraint</button>
+<button onclick="addLunchBreak(); this.hidden = true;" type="button" >Add Lunch Break</button>
+</div>
+</div>
+</div>
+<button type="button" onclick="alert('Not Implemented');">Save</button>
 <input type="submit" value="Solve" /><br>
 Solving this problem may take some time (up to 10 minutes).  Do not reload or leave the page after pressing the "Solve" button.  You can see the current state of the run by going to the <a href="{% url 'solver:index' %}">index</a> page and clicking on the latest "solver_run".   Future version of this app will show this information as it becomes available.<br>
 <br>
@@ -31,9 +94,10 @@ Unimplemented features: 0 value for any preferences.<br>
 Unimplemented features: No break penalties (other than default).<br>
 Unimplemented features: Generic Constraints (get me 30min off in this 120min chunk or 30min off in that 60min chunk, etc).<br>
 Unimplemented features: non-30min default session length.<br>
-Unimplemented features: Explain session length (name with [60min] in them).<br>
-Unimplemented features: Explain multiple sessions on different days (name with [x2] in them).<br>
 Unimplemented features: Support penalty for consecutive day lessons.<br>
 Unimplemented features: Make schedule page have information from the schedule run (such as whether it was optimal).<br>
+Unimplemented features: test application with non-ascii characters<br>
+Unimplemented features: different penalties on different days.<br>
+Unimplemented features: investigate bug with scheduling longer session at the end of the day.<br>
 </form>
 {% endif %}

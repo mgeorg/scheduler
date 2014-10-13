@@ -2,8 +2,37 @@
 {% if object.deleted %}
 You do not have permission to view this page.
 {% else %}
-<p>Version {{object.solver_version}}</p>
+<p>Solver Version {{object.solver_version}}</p>
 <p>Started at: {{object.creation_time}} UTC</p>
 <p>Current State: {{ object.get_state_display }}</p>
+<p>Score: {{ object.score }}</p>
+<p>Solution: {{ object.get_solution_display }}</p>
+{% if not object.schedule_set.all %}
 <p>Options: {{ object.options | linebreaks }}</p>
+<p>Scheduler Output: {{ object.scheduler_output | linebreaks }}</p>
+<p>Optimizer Output: {{ object.solver_output | linebreaks }}</p>
+{% endif %}
+
+{% for schedule in object.schedule_set.all %}
+<h2>Schedule</h2>
+{% if schedule.deleted %}
+You do not have permission to view this schedule.
+{% else %}
+<p>Created at: {{schedule.creation_time}} UTC</p>
+<p>score: {{ schedule.score }}</p>
+<pre>{{ schedule.schedule }}</pre>
+{% endif %}
+{% endfor %}
+
+{% if object.state != solverrun.DONE %}
+<script>
+setTimeout(function(){
+  window.location.reload(1);
+}, 1000);
+</script>
+{% for x in "1234567890" %}
+<br>
+{% endfor %}
+{% endif %}
+
 {% endif %}

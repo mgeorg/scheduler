@@ -1,5 +1,6 @@
 import ast
 import csv
+import threading
 
 from django.shortcuts import get_object_or_404, render
 from django.http import HttpResponse, HttpResponseRedirect
@@ -75,8 +76,8 @@ def start_run(request):
   solver_options.arrive_late_bonus = request.POST['arrive_late_bonus']
   solver_options.leave_early_bonus = request.POST['leave_early_bonus']
   solver_options.day_off_bonus = request.POST['day_off_bonus']
-  solver_options.no_break_penalty = ast.literal_eval(
-      request.POST['no_break_penalty'])
+  solver_options.no_break_penalty = ast.literal_eval('{'+
+      request.POST['no_break_penalty']+'}')
   solver_options.pupil_preference_penalty_list = request.POST['pupil_preference_penalty']
   solver_options.instructor_preference_penalty_list = request.POST['instructor_preference_penalty']
 
@@ -84,7 +85,7 @@ def start_run(request):
   solver_options.save()
 
   solver_run = SolverRun()
-  solver_run.solver_version = solver.solver.Scheduler.version
+  solver_run.solver_version = solver.solver.version_number
   solver_run.options = solver_options
   solver_run.score = None
   solver_run.state = SolverRun.INITIALIZED
@@ -102,10 +103,8 @@ def start_run(request):
   constraints.ParseIterator(table_data)
   scheduler = solver.solver.Scheduler(constraints, solver_options, solver_run)
   scheduler.Prepare()
-  schedule = scheduler.Solve()
-  if schedule:
-    return HttpResponseRedirect(reverse('solver:schedule', args=(schedule.id,)))
-  # TODO(mgeorg) Redirect immediately and have the run page ajax the
-  # run information as it is being generated.
+
+  t = threading.Thread(target=scheduler.Solve)
+  t.start()
   return HttpResponseRedirect(reverse('solver:run', args=(solver_run.id,)))
 

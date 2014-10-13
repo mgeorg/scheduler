@@ -314,46 +314,108 @@ function nextStep() {
 <body>
 <h1>Step 1: Create the Scheduling Constraints and Preferences.</h1>
 <p><a href="{% url 'solver:index' %}">index of all database objects.</a></p>
+<h2>Step 1a: Specify day start and end times (optional).</h2>
 <p>You need to create some times.  Either fill out the following fields and press the button, or enter in every start time manually.</p>
 <input type="checkbox" id="day_m" checked /> Monday
 <input type="checkbox" id="day_t" checked /> Tuesday
 <input type="checkbox" id="day_w" checked /> Wednesday
 <input type="checkbox" id="day_r" checked /> Thursday
 <input type="checkbox" id="day_f" checked /> Friday
-<input type="checkbox" id="day_s" checked /> Saturday
-<input type="checkbox" id="day_u" checked /> Sunday<br>
+<input type="checkbox" id="day_s" /> Saturday
+<input type="checkbox" id="day_u" /> Sunday<br>
 Each slot is <input type="text" id="slot_length" value="30" size="3"/>minutes long.<br>
-Start the day at: <input type="text" id="slot_start" value="7:30" size="7"/>.<br>
-End the day at: <input type="text" id="slot_end" value="17:30" size="7"/>. (You may also use AM or PM notation in this field.  All later fields must be filled out in 24 hour time).<br>
+Start the day at: <input type="text" id="slot_start" value="9:30" size="7"/>.<br>
+End the day at: <input type="text" id="slot_end" value="14:30" size="7"/>. (You may also use AM or PM notation in this and other fields (however they will be converted to 24 hour time).<br>
 <button onclick="createTimesByRange();">Create Times</button><br>
-<p></p>
+<h2>Step 1b: Specify all session start times.</h2>
 <textarea rows=10 cols=150 id="slot_times" /></textarea><br>
 <button onclick="createSlots();">Create Availability Table</button><br>
 
 <div id="table_div" hidden>
 
-<p>The following table lists all slot start times and preferences for instructor and pupils.  An empty value means the instructor or pupil is not available for that slot.  A value of 1 means the instructor or pupil is happy to take this slot.  A value of 2 means that the instructor or pupil will take that slot if forced, but they would prefer another slot.  A value of 3 through 5 means the instructor or pupil is increasingly unhappy with this slot (each number is twice as unhappy as the last).</p>
-<p>Note that each session goes until the next session start time.  The instructor cannot be available for the last "start time" of each day (since this is actually the day end time).</p>
-<p>If you have a pupil that takes lessons that are longer than a single slot, placing a 1 in a slot means that they are able to start (their longer lesson) at that time, even if it goes into a slot that they have not marked with a 1.  For the instructor, however, a longer lesson will only be scheduled on slots where every slot is marked as available.</p>
-<p>For the instructor, a slot that is left blank means "I want to be free at this time".  If instead what you mean is "I have something to do at this time that will keep me busy" then fill the slot with an X value.  This makes a difference for optimizations where the algorithm tries to have you come in late, or take the entire day off.  So, if you have a mandatory school meeting at 9:00-9:30 then mark it as an X, but if you want 10:00-10:30 off for watching a screwball game leave it blank.</p>
-<button onclick="addPupil();">Add Pupil</button> 
-Default pupil value: <input type="text" id="default_pupil_value" value="1" size=1 />
-<button onclick="transposeTable();">Exchange Rows and Columns</button><br>
+<h2>Step 1c: Specify your availability.</h2>
+<p>Write 1 if the instructor or pupil is available at that time.  Leave empty (or use a value of 0 if not).
+<button id="advanced_instructions_button" onclick="document.getElementById('advanced_instructions').hidden = false;document.getElementById('advanced_instructions_button').hidden = true;">Advanced Instructions</button></p>
+<div id="advanced_instructions" hidden>
+<ul>
+<li>Numbers 1 through 5 signal that the instructor or pupil is available (1 is best choices, 2 is less good, 3 is even less good, etc).  You may use as many of each number as you want.  Each increasing number is twice as undesirable as the last.  I recommend using only the number 1 for the instructor (later options will allow the instructor to schedule things like lunch in a much more convenient manner).  I recommend keeping a close eye on the number of 2's and 3's that pupil's can enter.</li>
+<li>An empty field (or a number 0) means that the instructor or pupil is not available. </li>
+<li>An X is similar to an empty field and means the instructor in unavailable.  However, it also means that the instructor is stuck at the same place lessons will occur at, and hence the program should try to schedule sessions around this time if possible.  This is different from an empty value, where the program will try to leave the sessions around it free so that you have a nice chunk of time you can actually do something with.</li>
+<li>Each session goes until the next session start time.  The instructor cannot be available for the last "start time" of each day (since this is actually the day end time).  You only need to worry about this if you edit the CSV data manually.</li>
+<li>You may specify that a pupil has a longer session by adding "[60min]" after the name (don't include the quotes).  The session length must be specified in minutes.  Example: "Jane Doe [120min]"</li>
+<li>If you have a pupil that takes lessons that are longer than a single slot, placing a 1 in a slot means that they are able to start (their longer lesson) at that time, even if it goes into a slot that they have not marked with a 1.  For the instructor, however, a longer lesson will only be scheduled on slots where every slot is marked as available.</li>
+<li>A pupil who takes multiple lessons per week can be specified with "[x2]" after their name.  These lessons will be scheduled on different days.  Example: "Roger [x3]"</li>
+<li>A pupil can have both longer lessons and multiple lessons per week. "Jessica [60min] [x2]"</li>
+</ul>
+</div>
 <div id="table_transposed" hidden value="0"></div>
 <table>
 <tbody id="availability_table">
 </tbody>
 </table><br>
+<button onclick="addPupil();">Add Pupil</button> 
+Default pupil value: <input type="text" id="default_pupil_value" value="1" size=1 />
+<button onclick="transposeTable();">Exchange Rows and Columns</button><br>
 
-<p>The following text area can be used to save your data or slightly tweak it.
-If you download the CSV data, you can open it with a spreadsheet program (such as <a href="http://docs.google.com/">google docs</a>).  After editing the data, you can save it again in CSV format and then enter it in this text box again (ignoring all the earlier steps on this page).  When you are ready to move on to the next stage of creating your schedule, press the button "Go to Next Step".  When you do this, the data you have in the CSV data field will be saved permanently, and publicly accessible on the server.  Please make sure you are not submitting any confidential data (also, please note, that if I wasn't nice, everything you typed on this page would already be saved).</p>
-<button onclick="saveTable();">Make CSV data</button>
+<p></p>
+<button onclick="saveTable();document.getElementById('csv_textarea').hidden = false;">Start Next Step</button>
+
+<div id="csv_textarea" hidden>
+<h2>Step 1d: Save or export the data.</h2>
+
+<p>If you want to save your data, now is a good time to do so.  You can either copy the contents of the text area or press the "Download CSV Data" button.</p>
+<p>You can modify this data in a spreadsheet (such as <a href="http://docs.google.com/">google docs</a>) and re-enter it here before moving on.  When you go on to the next step your data will be saved on the server and become publicly accessible.</p>
 <button onclick="downloadCsv();">Download CSV Data</button>
 <button onclick="nextStep();">Go to Next Step</button><br>
 <form action="new_availability/" id="next_step_form" method="POST">
 {% csrf_token %}
 <textarea rows=30 cols=150 name="csv_data" id="csv_data" /></textarea><br>
 </form>
+<button onclick="document.getElementById('csv_info').hidden=false;">More Information on the CSV Format</button><br>
+<div id="csv_info" hidden>
+
+<h2>The first row (The time slots)</h2>
+<ol>
+<li>The first cell must be exactly "Schedule".</li>
+<li>Every other cell must be a one character code for the weekday (M, T, W, R, F, S, U) optionally followed by a space followed by a time in 24 hour format with a colon between the hour and the minute (e.g. "17:30").</li>
+<li>Each time slot must be after the last time slot.</li>
+<li>Each time slot extends until the next time slot.  This means that you MUST create at least one time slot at the end of each day which you set yourself as unavailable for.</li>
+</ol>
+<h2>The second row (Instructor preferences)</h2>
+<ol>
+<li>The first cell must be exactly "Instructor1".</li>
+<li>Every other cell must be empty or filled with exactly "1", "2", "3", "4", "5", "X".</li>
+<li>Empty means that the instructor is not available at that time.</li>
+<li>"1" means that the instructor would like to teach at that time.</li>
+<li>"2" means that the instructor could teach at that time but would rather be watching monday night football or some other low priority but desirable thing that occurs AT THAT TIME (don't use this to ineffectually try to schedule a lunch or tell the system that you don't like coming in in the morning, there are better mechanisms available for specifying those preferences).</li>
+<li>Numbers above 2 are like "2" but progressively more so.  Each preference step is twice as undesirable as the last.  I recommend you only use the numbers 1, 2, and 3.</li>
+<li>"X" means not to schedule anything, but that the space should be considered busy.  Meaning, it won't accumulate any "arrive late bonus" and that it will count in "no break penalty" terms.</li>
+<li>If you have pupils with longer lessons (1 hour session when the slots are 30 min long) then the program will only schedule the pupil at 10:00 if you are available at both 10:00 and 10:30.</li>
+</ol>
+<h2>Additional rows (Pupil preferences)</h2>
+<ol>
+<li>The first cell must be the pupil's name such as "Jane Doe".  Any utf-8 encoded string is valid (Chinese characters, Arabic, and Klingon are all valid).</li>
+<li>All additional cells specify preference with "1" being ideal, "2" being a second choice slot, and "3" being a third choice slot.  Penalties for scheduling on a less ideal slot can be specified (and are generally much less important than instructor preferences)</li>
+<li>For pupils with longer lessons (1 hour session when slots are 30 min).  Be aware that the preference is for STARTING a session at the specified time.  If you specify "1" at 11:00 and "" (meaning don't schedule) at 11:30 then the program may schedule a lesson from 11:00-12:00 but not 11:30-12:30.  This is slightly different than how instructor preferences are specified (instructor preferences are always about exactly only the specified slot).</li>
+<li>Each pupil may specify as many "" (empty), "1", "2", and "3" cells as they want.  When setting schedules, you may or may not expose the full range of preferences to the pupils and you may or may not restrict the number of "2" and "3" you allow them to specify.  It's entirely your choice, the program doesn't care at all.  However, note that a pupil who specifies "3" for each slot might as well have specified "1" for each slot.</li>
+<li>Lets say that you have a deal with your spouse that on Tuesdays you EITHER bring the little rugrat to pre-school OR you cook lasagna in the evening.  Clearly, you can't schedule pupils both in the morning and in the evening.  However, which is better for your other scheduling needs?  You can let the program know about your marital constraints by making Tuesday morning and Tuesday evening mutually exclusive.  Create a "Complex Constraint" for Tuesday morning: "T 7:30-10:00" and then push the "Or..." button to get another field.  Fill in that field with "T 16:00-20:00".  The profram will now make sure that you either have Tuesday 7:30 to 10:00 free or 4:00PM to 8:00PM free.</li>
+<li>Lets say you want lunch off but you don't care if you eat 12:00-12:30 or 12:30-13:00.  You can create a complex Constraint "30min R 12:00-13:00" and the program will make sure you have a 30min break between 12:00 and 13:00 on Thursday.</li>
+</ol>
+<h2>Generic Preferences</h2>
+<ol>
+<li>There are a number of generic preferences.  If you're like most people, then you'd rather go home 2 hours early have 2 hours worth of breaks randomly interspersed throughout the day.  There are several of these kinds of penalties and bonuses which get assigned for various aspects of the schedule.  You can set the penalty/bonus weights for each term, allowing you to customize what kind of schedule you'd like the program to find for you.</li>
+<li>If you like to go home early, you can assign a bonus for every minute you leave earlier in the day.</li>
+<li>If you would like to come in late, you can assign a bonus for every minute you start later in the day.</li>
+<li>If you don't like working long shifts, you can specify a penalty for long sequences of sessions without a break.  The format for specifying this is complicated.  It consists of comma separated pairs of numbers TIME_LENGTH:PENALTY.  The penalty is normalized to be on the same scale as other penalty and bonus values.  For each run of sessions with no breaks, it determines the length.  Lets say the sessions run for 4 consecutive hours (that's 240min).  The penalty term that is applied is the largest TIME_LENGTH that is less than or equal to the length of the run.</li>
+<li>You can assign how much of a penalty (per minute) scheduling a session on a slot you have marked with a number higher than 1 costs.</li>
+<li>You can assign how much of a penalty (per minute) scheduling a session on a slot a pupil has marked with a number higher than 1 costs.</li>
+<li>Each of these bonuses and penalties has a default value in one of 3 profiles ("I like sleeping in", "I like leaving early", "I like lots of breaks").  Feel free to use a profile or to set each value yourself.</li>
+<li>There is a bonus for skipping an entire day.  The value specified is in addition to the coming in late or the leaving early bonus (whichever is greater).  This bonus is normalized to be on the same scale as the other bonuses and penalties.</li>
+</ol>
+
+</div>
+
+</div>
 
 </div>
 
