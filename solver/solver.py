@@ -30,6 +30,8 @@ import logging
 
 import solver.models
 
+version_number = 'v0.3'
+
 logger = logging.getLogger(__name__)
 SlotTimeSpec = collections.namedtuple('SlotTimeSpec', 'day time length')
 
@@ -241,11 +243,9 @@ class Constraints:
 
 
 class Scheduler:
-  version = 0.2
-
   def __init__(self, spec, pref, solver_run):
     self.solver_run = solver_run
-    self.solver_run.version = self.version
+    self.solver_run.version = version_number
 
     self.spec = spec
     self.next_var = 1

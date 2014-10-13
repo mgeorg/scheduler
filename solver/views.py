@@ -17,6 +17,13 @@ class SolverRunView(generic.DetailView):
 class ScheduleView(generic.DetailView):
   model = Schedule
 
+def home(request):
+  template = loader.get_template('solver/instructions.html')
+  context = RequestContext(request, {
+      'version_number': solver.solver.version_number
+      })
+  return HttpResponse(template.render(context))
+
 def index(request):
   all_availability = Availability.objects.all()
   all_solver_options = SolverOptions.objects.all()
