@@ -32,7 +32,7 @@ class SolverRun(models.Model):
   solver_version = models.CharField(max_length=10)
   deleted = models.BooleanField(default=False)
   options = models.OneToOneField(SolverOptions)
-  score = models.IntegerField(null=True)
+  score = models.IntegerField(null=True, blank=True)
   scheduler_output = models.TextField()
   solver_output = models.TextField()
 
@@ -61,7 +61,7 @@ class SolverRun(models.Model):
 class Schedule(models.Model):
   creation_time = models.DateTimeField(auto_now_add=True)
   deleted = models.BooleanField(default=False)
-  score = models.IntegerField()
+  score = models.IntegerField(null=True, blank=True)
   schedule = models.TextField()
   created_by = models.ForeignKey(SolverRun)
 
