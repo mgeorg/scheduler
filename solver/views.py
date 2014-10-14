@@ -90,20 +90,15 @@ def start_run(request):
   solver_run.solver_version = solver.solver.version_number
   solver_run.options = solver_options
   solver_run.score = None
-  solver_run.state = SolverRun.NOT_STARTED
+  solver_run.state = SolverRun.IN_QUEUE
   solver_run.solution = SolverRun.NO_SOLUTION
-
   solver_run.save()
 
-  p = subprocess.Popen(['/usr/bin/python3',
-                        '/home/mgeorg/production_scheduler/manage.py',
-                        'solve',
-                        str(availability.id),
-                        str(solver_options.id),
-                        str(solver_run.id)],
-                       stdin=subprocess.DEVNULL,
-                       stdout=subprocess.DEVNULL,
-                       stderr=subprocess.DEVNULL)
+  solver_request = SolverRequest()
+  solver_request.availability = availability
+  solver_request.solver_options = solver_options
+  solver_request.solver_run = solver_run
+  solver_request.save()
 
   return HttpResponseRedirect(reverse('solver:run', args=(solver_run.id,)))
 

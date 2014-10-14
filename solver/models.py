@@ -37,10 +37,12 @@ class SolverRun(models.Model):
   solver_output = models.TextField()
 
   NOT_STARTED = 'n'
+  IN_QUEUE = 'q'
   RUNNING = 'r'
   DONE = 'd'
   SOLVER_STATE_CHOICES = (
       (NOT_STARTED, 'Solver Not Started'),
+      (IN_QUEUE, 'Solver Problem Queued'),
       (RUNNING, 'Solver Running'),
       (DONE, 'Solver Done'),
   )
@@ -57,6 +59,13 @@ class SolverRun(models.Model):
       (OPTIMAL, 'Optimal Solution Found'),
   )
   solution = models.CharField(max_length=1, choices=SOLUTION_CHOICES)
+
+class SolverRequest(models.Model):
+  creation_time = models.DateTimeField(auto_now_add=True)
+  deleted = models.BooleanField(default=False)
+  availability = models.ForeignKey(Availability)
+  solver_options = models.ForeignKey(SolverOptions)
+  solver_run = models.ForeignKey(SolverRun)
 
 class Schedule(models.Model):
   creation_time = models.DateTimeField(auto_now_add=True)
