@@ -31,7 +31,7 @@ class Migration(migrations.Migration):
                 ('id', models.AutoField(serialize=False, verbose_name='ID', auto_created=True, primary_key=True)),
                 ('creation_time', models.DateTimeField(auto_now_add=True)),
                 ('deleted', models.BooleanField(default=False)),
-                ('score', models.IntegerField(null=True, blank=True)),
+                ('score', models.IntegerField(blank=True, null=True)),
                 ('schedule', models.TextField()),
             ],
             options={
@@ -60,11 +60,11 @@ class Migration(migrations.Migration):
                 ('creation_time', models.DateTimeField(auto_now_add=True)),
                 ('solver_version', models.CharField(max_length=10)),
                 ('deleted', models.BooleanField(default=False)),
-                ('score', models.IntegerField(null=True, blank=True)),
+                ('score', models.IntegerField(blank=True, null=True)),
                 ('scheduler_output', models.TextField()),
                 ('solver_output', models.TextField()),
-                ('state', models.CharField(max_length=1, choices=[('i', 'Solver Initialized'), ('r', 'Solver Running'), ('d', 'Solver Done')])),
-                ('solution', models.CharField(max_length=1, choices=[('n', 'No Solution Found'), ('i', 'Problem is Impossible'), ('s', 'Solution Found'), ('o', 'Optimal Solution Found')])),
+                ('state', models.CharField(choices=[('n', 'Solver Not Started'), ('r', 'Solver Running'), ('d', 'Solver Done')], max_length=1)),
+                ('solution', models.CharField(choices=[('n', 'No Solution Found'), ('i', 'Problem is Impossible'), ('s', 'Solution Found'), ('o', 'Optimal Solution Found')], max_length=1)),
                 ('options', models.OneToOneField(to='solver.SolverOptions')),
             ],
             options={

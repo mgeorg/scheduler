@@ -66,9 +66,9 @@ DATABASES = {
 }
 
 if PRODUCTION:
-  DJANGO_LOG_FILE = '/tmp/django_production.log'
+  DJANGO_LOG_FILE = '/var/log/django/production.log'
 else:
-  DJANGO_LOG_FILE = '/tmp/django_debug.log'
+  DJANGO_LOG_FILE = '/var/log/django/debug.log'
 LOGGING = {
  'version': 1,
  'disable_existing_loggers': False,

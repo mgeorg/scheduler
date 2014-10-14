@@ -1,6 +1,7 @@
+import logging
 import ast
 import csv
-import threading
+import subprocess
 
 from django.shortcuts import get_object_or_404, render
 from django.http import HttpResponse, HttpResponseRedirect
@@ -10,6 +11,8 @@ from django.core.urlresolvers import reverse
 
 from solver.models import *
 import solver.solver
+
+logger = logging.getLogger(__name__)
 
 class SolverRunView(generic.DetailView):
   model = SolverRun
@@ -72,6 +75,7 @@ def start_run(request):
   solver_options = SolverOptions()
 
   availability.csv_data = request.POST['csv_data']
+  availability.save()
 
   solver_options.arrive_late_bonus = request.POST['arrive_late_bonus']
   solver_options.leave_early_bonus = request.POST['leave_early_bonus']
@@ -80,31 +84,26 @@ def start_run(request):
       request.POST['no_break_penalty']+'}')
   solver_options.pupil_preference_penalty_list = request.POST['pupil_preference_penalty']
   solver_options.instructor_preference_penalty_list = request.POST['instructor_preference_penalty']
-
-  availability.save()
   solver_options.save()
 
   solver_run = SolverRun()
   solver_run.solver_version = solver.solver.version_number
   solver_run.options = solver_options
   solver_run.score = None
-  solver_run.state = SolverRun.INITIALIZED
+  solver_run.state = SolverRun.NOT_STARTED
   solver_run.solution = SolverRun.NO_SOLUTION
+
   solver_run.save()
 
-  # Run the solver on the data.
-  parser = csv.reader(availability.csv_data.splitlines(True))
-  table_data = []
-  for row in parser:
-    if not row:
-      continue
-    table_data.append([x.strip() for x in row])
-  constraints = solver.solver.Constraints()
-  constraints.ParseIterator(table_data)
-  scheduler = solver.solver.Scheduler(constraints, solver_options, solver_run)
-  scheduler.Prepare()
+  p = subprocess.Popen(['/usr/bin/python3',
+                        '/home/mgeorg/production_scheduler/manage.py',
+                        'solve',
+                        str(availability.id),
+                        str(solver_options.id),
+                        str(solver_run.id)],
+                       stdin=subprocess.DEVNULL,
+                       stdout=subprocess.DEVNULL,
+                       stderr=subprocess.DEVNULL)
 
-  t = threading.Thread(target=scheduler.Solve)
-  t.start()
   return HttpResponseRedirect(reverse('solver:run', args=(solver_run.id,)))
 

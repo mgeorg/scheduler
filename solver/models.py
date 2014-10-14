@@ -36,11 +36,11 @@ class SolverRun(models.Model):
   scheduler_output = models.TextField()
   solver_output = models.TextField()
 
-  INITIALIZED = 'i'
+  NOT_STARTED = 'n'
   RUNNING = 'r'
   DONE = 'd'
   SOLVER_STATE_CHOICES = (
-      (INITIALIZED, 'Solver Initialized'),
+      (NOT_STARTED, 'Solver Not Started'),
       (RUNNING, 'Solver Running'),
       (DONE, 'Solver Done'),
   )
@@ -65,3 +65,6 @@ class Schedule(models.Model):
   schedule = models.TextField()
   created_by = models.ForeignKey(SolverRun)
 
+  def __str__(self):
+    return ('Schedule with score ' + str(self.score) +
+            ' created on ' + str(self.creation_time))

@@ -20,15 +20,16 @@
 
 import collections
 import csv
+import logging
 import os
 import re
 import select
 import subprocess
+import sys
 import tempfile
 import time
-import logging
 
-import solver.models
+import solver
 
 version_number = 'v0.3'
 
@@ -590,7 +591,6 @@ class Scheduler:
     output.append(remaining_output)
     self.solver_run.solver_output = ''.join(output)
     self.solver_run.save()
-    print('Ready to parse output')
     return self.ParseSolverOutput()
 
   def PaddedSlotName(self, slot):
@@ -742,23 +742,34 @@ class Scheduler:
 
 
 def main():
-  c = Constraints()
-  c.ParseFile(r'sched.csv')
-  print(str(c))
-  print("###############################")
-  print("###############################")
-  print("###############################")
+  if len(sys.argv) != 4:
+    return 1
+  availability_id = int(sys.argv[1])
+  solver_options_id = int(sys.argv[2])
+  solver_run_id = int(sys.argv[3])
 
-  s = Scheduler(c)
-  s.Prepare()
-  print(str(s))
-  s.Solve()
-  # TODO(mgeorg) Add automatic solution diversity based on changing
-  # the penalty terms, or removing certain days.
-  # TODO(mgeorg) make all the configuration information accessible.
-  print(s.no_break_penalty)
+  availability = solver.models.Availability.objects.get(pk=availability_id)
+  solver_options = solver.models.SolverOptions.objects.get(pk=solver_options_id)
+  solver_run = solver.models.SolverRun.objects.get(pk=solver_run_id)
+
+  # Run the solver on the data.
+  parser = csv.reader(availability.csv_data.splitlines(True))
+  table_data = []
+  for row in parser:
+    if not row:
+      continue
+    table_data.append([x.strip() for x in row])
+
+  constraints = solver.solver.Constraints()
+  constraints.ParseIterator(table_data)
+
+  scheduler = solver.solver.Scheduler(constraints, solver_options, solver_run)
+  scheduler.Prepare()
+  scheduler.Solve()
+
+  return 0
 
 
 if __name__ == "__main__":
-    main()
+  sys.exit(main())
 
