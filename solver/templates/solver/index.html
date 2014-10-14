@@ -4,7 +4,7 @@
   <a href="{% url 'solver:availability' availability.id %}">{% url 'solver:availability' availability.id %}</a><br>
 {% endfor %}
 {% for solver_run in all_solver_run %}
-  <a href="{% url 'solver:solver_run' solver_run.id %}">{% url 'solver:solver_run' solver_run.id %}</a><br>
+  <a href="{% url 'solver:run' solver_run.id %}">{% url 'solver:run' solver_run.id %}</a><br>
 {% endfor %}
 {% for schedule in all_schedule %}
   <a href="{% url 'solver:schedule' schedule.id %}">{% url 'solver:schedule' schedule.id %}</a><br>
