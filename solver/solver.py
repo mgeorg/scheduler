@@ -32,7 +32,7 @@ import time
 
 import solver
 
-version_number = 'v0.4'
+version_number = 'v0.5'
 
 logger = logging.getLogger(__name__)
 SlotTimeSpec = collections.namedtuple('SlotTimeSpec', 'day time length')
