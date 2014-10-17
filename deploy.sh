@@ -12,10 +12,19 @@ if [[ "$DELETE_DATABASE" = "--delete" ]]; then
   sudo chmod 660 db.sqlite3
 fi
 
-sudo chown mgeorg:www-data -R .
-sudo chown mgeorg:www-data /tmp/django*.log
-sudo chmod 660 /tmp/django*.log
-sudo sed -i -r 's/^\s*PRODUCTION\s*=\s*FALSE\s*;?\s*$/PRODUCTION = TRUE/' scheduler/settings.py
-sudo ./manage.py collectstatic
-sudo vi /etc/apache2/sites-enabled/000-default.conf
-sudo /etc/init.d/apache2 restart
+if [[ "$DELETE_DATABASE" = "--production" ]]; then
+  echo "Deploying to production"
+else
+  PRODUCTION=$1
+  shift
+fi
+if [[ "$PRODUCTION" = "--production" ]]; then
+  sudo sed -i -r 's/^\s*PRODUCTION\s*=\s*FALSE\s*;?\s*$/PRODUCTION = TRUE/' scheduler/settings.py
+  sudo ./manage.py collectstatic
+  sudo vi /etc/apache2/sites-enabled/000-default.conf
+  sudo /etc/init.d/apache2 restart
+  sudo chown mgeorg:www-data -R .
+  sudo chown mgeorg:www-data /tmp/django*.log
+  sudo chmod 660 /tmp/django*.log
+fi
+

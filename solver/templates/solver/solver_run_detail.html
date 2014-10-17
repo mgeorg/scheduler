@@ -7,11 +7,16 @@ You do not have permission to view this page.
 <p>Current State: {{ object.get_state_display }}</p>
 <p>Score: {{ object.score }}</p>
 <p>Solution: {{ object.get_solution_display }}</p>
-{% if not object.schedule_set.all %}
+{% if object.schedule_set.all %}
+<button onclick='document.getElementById("hider").hidden=false; this.hidden=true;'>Show run info</button>
+<div id="hider" hidden>
+{% else %}
+<div id="hider">
+{% endif %}
 <p>Options: {{ object.options | linebreaks }}</p>
 <p>Scheduler Output: {{ object.scheduler_output | linebreaks }}</p>
 <p>Optimizer Output: {{ object.solver_output | linebreaks }}</p>
-{% endif %}
+</div>
 
 {% for schedule in object.schedule_set.all %}
 <h2>Schedule</h2>

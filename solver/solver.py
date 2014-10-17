@@ -18,6 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with session-scheduler.  If not, see <http://www.gnu.org/licenses/>.
 
+import ast
 import collections
 import csv
 import logging
@@ -31,10 +32,18 @@ import time
 
 import solver
 
-version_number = 'v0.3'
+version_number = 'v0.4'
 
 logger = logging.getLogger(__name__)
 SlotTimeSpec = collections.namedtuple('SlotTimeSpec', 'day time length')
+
+
+def ValFromXVar(var_str):
+  print(var_str)
+  m = re.match(r'^\s*~?x(\d+)\s*$', var_str)
+  assert m
+  return int(m.group(1))
+
 
 class Constraints:
   def __init__(self):
@@ -163,6 +172,8 @@ class Constraints:
     for i in range(self.num_slots):
       if row[i+1].isdigit():
         self.pupil_slot_preference[-1][i] = int(row[i+1])
+      elif row[i+1] in ['x', 'X']:
+        self.pupil_slot_preference[-1][i] = -1
 
   def ParseRestrictionsRow(self, row):
     assert row[0] == 'Instructor1 Restrictions'
@@ -253,6 +264,7 @@ class Scheduler:
     self.x_name = dict()
     self.our_name = dict()
     self.available = dict()
+    self.fixed_value = dict()
     self.constraints = []
     self.objective = []
     self.all_products = dict()
@@ -266,13 +278,10 @@ class Scheduler:
         int(x.strip()) for x in pref.pupil_preference_penalty_list.split(',')]
     self.instructor_preference_penalty = [
         int(x.strip()) for x in pref.instructor_preference_penalty_list.split(',')]
-    self.no_break_penalty = pref.no_break_penalty
-    self.no_break_penalty = dict()
-    # TODO(mgeorg) Change this to an explicit N^2 scheme where the
-    # session runs are bookended with open slots.  This will make the
-    # penalties more understandable.
-    for i in range(23*2):
-      self.no_break_penalty[i*30+60] = (i+1)*2
+    tmp_values = ast.literal_eval(pref.no_break_penalty)
+    self.no_break_penalty = sorted(
+        [(int(k),int(v)) for k,v in tmp_values.items() ])
+
 
   def __str__(self):
     return ('self.x_name: ' + str(self.x_name) +
@@ -307,20 +316,28 @@ class Scheduler:
           self.MakeVariable(var_name)
 
   def MakeAvailabilityDict(self):
-    # Each session only has 1 student.
+    # Go through availabilities and mark the variables that we need.
     for slot in range(self.spec.num_slots):
       for pupil in range(self.spec.num_pupils):
         var_name = 'p'+str(pupil)+'s'+str(slot)
         self.available[var_name] = (
             self.spec.pupil_slot_preference[pupil][slot] > 0 and
             self.spec.pupil_slot_preference[0][slot] > 0)
+        if not self.available[var_name]:
+          if self.spec.pupil_slot_preference[pupil][slot] == -1:
+            # Consider this slot busy
+            self.fixed_value[var_name] = 1
+          else:
+            self.fixed_value[var_name] = 0
 
   def MakeSlotConstraints(self):
-    """Each slot can only be filled once.
+    """Each lesson needs exactly one teacher per student.
 
-    Notice that a slot may be filled because an earlier slot was filled
-    with a session which has gone past its end time.
+    Notice that a student may fill the lesson because of overflow from
+    an earlier slot which has gone past its end time.
     """
+    # TODO(mgeorg) There is a bug here with scheduling long lessons at the
+    # end of the day.
     # Each session needs an instructor and only has 1 student.
     for slot in range(self.spec.num_slots):
       x_names = []
@@ -371,9 +388,49 @@ class Scheduler:
         x = self.x_name[var_name]
         x_names.append(x)
       if x_names and num > 0:
-        x_names.sort(key=lambda y: int(y[1:]))
+        x_names.sort(key=ValFromXVar)
         self.constraints.append(
             '1 ~' + ' +1 ~'.join(x_names) + ' >= ' + str(num) + ';')
+
+  def MakeProd(self, penalty, slots, pupil=0, negations=False):
+    if isinstance(negations, list):
+      assert len(slots) == len(negations)
+    else:
+      negations = [negations for i in range(len(slots))]
+    if penalty == 0:
+      return ''
+    x_names = []
+    for i in range(len(slots)):
+      slot = slots[i]
+      var_name = 'p'+str(pupil)+'s'+str(slot)
+      if not self.available[var_name]:
+        # fixed == 1 and negation means prod has value 0
+        # and fixed == 0 and not negation means prod has value 0
+        # otherwise the value for this term is 1 and the sum goes on.
+        if self.fixed_value[var_name] == negations[i]:
+          return ''
+        else:
+          continue
+      if negations[i]:
+        x_names.append('~'+self.x_name[var_name])
+      else:
+        x_names.append(self.x_name[var_name])
+
+    if not x_names:
+      return ''
+
+    if penalty > 0:
+      penalty_str = '+' + str(penalty)
+    else:
+      penalty_str = str(penalty)
+
+    x_names.sort(key=ValFromXVar)
+
+    product = ' '.join(x_names)
+    if len(x_names) > 1:
+      self.all_products[product] = 1
+      self.max_product_size = max(self.max_product_size, len(x_names))
+    return penalty_str + ' ' + product
 
   def MakePreferencePenalty(self):
     objective = list()
@@ -401,24 +458,13 @@ class Scheduler:
     self.all_objectives['arrive late'] = objective
     # Assign a bonus for every minute the instructor comes in late.
     for day in range(7):
-      x_names = []
+      slots = []
       for slot in self.spec.slots_by_day[day]:
-        var_name = 'p0s'+str(slot)
-        x = self.x_name[var_name]
-        if self.available[var_name]:
-          x_names.append(x)
-          x_names.sort(key=lambda y: int(y[1:]))
-        if x_names:
-          product = '~' + ' ~'.join(x_names)
-          if len(x_names) > 1:
-            self.all_products[product] = 1
-            self.max_product_size = max(self.max_product_size, len(x_names))
-          # This bonus is only the additional bonus from the latest slot.
-          bonus = self.arrive_late_bonus * self.spec.slot_time[slot].length
-          bonus_str = str(-bonus)
-          if bonus_str[0] != '-':
-            bonus_str = '+' + bonus_str
-          objective.append(bonus_str + ' ' + product)
+        slots.append(slot)
+        bonus = self.arrive_late_bonus * self.spec.slot_time[slot].length
+        term = self.MakeProd(-bonus, slots, 0, 1)
+        if term:
+          objective.append(term)
     self.objective.extend(objective)
 
   def MakeLeaveEarlyBonus(self):
@@ -428,63 +474,69 @@ class Scheduler:
     # TODO(mgeorg) This isn't perfect, it assumes that the entire slot
     # is used, when a lesson might have just barely used some time up.
     for day in range(7):
-      x_names = []
+      slots = []
       for slot in reversed(self.spec.slots_by_day[day]):
-        var_name = 'p0s'+str(slot)
-        x = self.x_name[var_name]
-        if self.available[var_name]:
-          x_names.append(x)
-          x_names.sort(key=lambda y: int(y[1:]))
-        if x_names:
-          product = '~' + ' ~'.join(x_names)
-          if len(x_names) > 1:
-            self.all_products[product] = 1
-            self.max_product_size = max(self.max_product_size, len(x_names))
-          # This bonus is only the additional bonus from the latest slot.
-          bonus = self.leave_early_bonus * self.spec.slot_time[slot].length
-          bonus_str = str(-bonus)
-          if bonus_str[0] != '-':
-            bonus_str = '+' + bonus_str
-          objective.append(bonus_str + ' ' + product)
+        slots.append(slot)
+        # This bonus is only the additional bonus from the latest slot.
+        bonus = self.leave_early_bonus * self.spec.slot_time[slot].length
+        term = self.MakeProd(-bonus, slots, 0, 1)
+        if term:
+          objective.append(term)
     self.objective.extend(objective)
 
   def MakeNoBreakPenalty(self):
+    length_to_penalty = dict()
+
+    k,v = self.no_break_penalty[0]
+    diff = 0
+    for i in range(k):
+      length_to_penalty[i] = float(v)
+    for index in range(len(self.no_break_penalty)-1):
+      k1,v1 = self.no_break_penalty[index]
+      k2,v2 = self.no_break_penalty[index+1]
+      r = k2 - k1
+      diff = (1/float(r))*(float(v2)-float(v1))
+      for i in range(r):
+        length_to_penalty[k1 + i] = float(i)*diff + float(v1)
+    if diff < 0:
+      diff = 0
+    k,v = self.no_break_penalty[-1]
+    for i in range(k, 24*60):
+      v = float(v) + diff
+      length_to_penalty[i] = v
+      
     objective = list()
     self.all_objectives['no break'] = objective
     # Assign a penalty for every minute the instructor doesn't have a
     # break past some allowable threshold.
     for day in range(7):
-      for no_break_penalty_tuple in sorted(self.no_break_penalty.items()):
-        for slot_in_day_index in range(len(self.spec.slots_by_day[day])):
-          slot = self.spec.slots_by_day[day][slot_in_day_index]
-          start_time = self.spec.slot_time[slot].time
-          var_name = 'p0s'+str(slot)
-          if not self.available[var_name]:
+      for first_slot_index in range(len(self.spec.slots_by_day[day])):
+        first_slot = self.spec.slots_by_day[day][first_slot_index]
+        start_time = self.spec.slot_time[first_slot].time
+        slots = []
+        for slot_index in range(first_slot_index,
+                                len(self.spec.slots_by_day[day])):
+          slot = self.spec.slots_by_day[day][slot_index]
+          slots.append(slot)
+          end_time = (self.spec.slot_time[slot].time + 
+                      self.spec.slot_time[slot].length)
+          if slots:
+            penalty = round(length_to_penalty[end_time - start_time] *
+                            float(end_time - start_time) / float(len(slots)))
+          else:
             continue
-          x_names = [self.x_name[var_name]]
-          for end_slot in self.spec.slots_by_day[day][(slot_in_day_index+1):]:
-            var_name = 'p0s'+str(end_slot)
-            if not self.available[var_name]:
-              break
-            x = self.x_name[var_name]
-            x_names.append(x)
-            if (self.spec.slot_time[end_slot].time +
-                self.spec.slot_time[end_slot].length -
-                start_time > no_break_penalty_tuple[0]):
-              # Notice that we use the entire length of the slot not just the
-              # time in excess of the break penalty.  This is because for longer
-              # runs of no break it gives the correct value.  It only gives
-              # the incorrect value for the minimal no break run.  People
-              # should use aligned slots anyway.
-              penalty = (no_break_penalty_tuple[1] *
-                         self.spec.slot_time[end_slot].length)
-              x_names.sort(key=lambda y: int(y[1:]))
-              product = ' '.join(x_names)
-              if len(x_names) > 1:
-                self.all_products[product] = 1
-                self.max_product_size = max(self.max_product_size, len(x_names))
-              objective.append('+' + str(penalty) + ' ' + product)
-              break
+          negations = [0]*len(slots)
+          all_slots = slots[:]
+          if first_slot_index != 0:
+            negations = [1] + negations
+            all_slots = [
+                self.spec.slots_by_day[day][first_slot_index-1]] + all_slots
+          if slot_index != len(self.spec.slots_by_day[day])-1:
+            negations = negations + [1]
+            all_slots = all_slots + [self.spec.slots_by_day[day][slot_index+1]]
+          term = self.MakeProd(penalty, all_slots, 0, negations)
+          if term:
+            objective.append(term)
     self.objective.extend(objective)
 
   def MakeDayOffBonus(self):
@@ -501,26 +553,11 @@ class Scheduler:
       workday_time = self.spec.day_range[day][1] - self.spec.day_range[day][0]
       arrive_late_bonus = self.arrive_late_bonus * workday_time
       leave_early_bonus = self.leave_early_bonus * workday_time
-      # TODO(mgeorg) Put this bonus on the same scale as the other bonuses.
       bonus = self.day_off_bonus * workday_time - min(arrive_late_bonus, leave_early_bonus)
 
-      x_names = []
-      for slot in self.spec.slots_by_day[day]:
-        var_name = 'p0s'+str(slot)
-        if self.available[var_name]:
-          x = self.x_name[var_name]
-          x_names.append(x)
-
-      if x_names:
-        x_names.sort(key=lambda y: int(y[1:]))
-        product = '~' + ' ~'.join(x_names)
-        if len(x_names) > 1:
-          self.all_products[product] = 1
-          self.max_product_size = max(self.max_product_size, len(x_names))
-        bonus_str = str(-bonus)
-        if bonus_str[0] != '-':
-          bonus_str = '+' + bonus_str
-        objective.append(bonus_str + ' ' + product)
+      term = self.MakeProd(-bonus, self.spec.slots_by_day[day], 0, 1)
+      if term:
+        objective.append(term)
     self.objective.extend(objective)
 
   def WriteFile(self):
@@ -544,6 +581,7 @@ class Scheduler:
         ('Solving with a time limit of ' + str(time_limit) +
         ' seconds of not improving the solution or a total time limit of ' +
         str(total_time_limit) + ' seconds\n' + self.header))
+    print(self)
     p = subprocess.Popen(
         ['clasp', '-t8', '--time-limit='+str(total_time_limit), self.opb_file],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
@@ -678,7 +716,11 @@ class Scheduler:
       for day in range(7):
         for slot in self.spec.slots_by_day[day]:
           pupil = self.schedule[slot]
-          instructor_preference = str(self.spec.pupil_slot_preference[0][slot])
+          pref = self.spec.pupil_slot_preference[0][slot]
+          if pref >= 0:
+            instructor_preference = str(pref)
+          else:
+            instructor_preference = 'X'
           extra = 'i' + instructor_preference + ' '
           if pupil:
             pupil_preference = str(self.spec.pupil_slot_preference[pupil][slot])
@@ -696,8 +738,12 @@ class Scheduler:
                 text_schedule += (
                     extra + self.PaddedSlotName(slot) + '\n')
               else:
-                text_schedule += (
-                    extra + self.PaddedSlotName(slot) + ' ***Busy***\n')
+                if instructor_preference == 'X':
+                  text_schedule += (
+                      extra + self.PaddedSlotName(slot) + ' ***Forced to be Busy***\n')
+                else:
+                  text_schedule += (
+                      extra + self.PaddedSlotName(slot) + ' ***Forced to be Free***\n')
         text_schedule += '\n'
       self.EvaluateAllObjectives()
       self.output_schedule = solver.models.Schedule()
@@ -741,16 +787,7 @@ class Scheduler:
         'Total Penalty ' + str(total_penalty) + '\n')
 
 
-def main():
-  if len(sys.argv) != 4:
-    return 1
-  availability_id = int(sys.argv[1])
-  solver_options_id = int(sys.argv[2])
-  solver_run_id = int(sys.argv[3])
-
-  availability = solver.models.Availability.objects.get(pk=availability_id)
-  solver_options = solver.models.SolverOptions.objects.get(pk=solver_options_id)
-  solver_run = solver.models.SolverRun.objects.get(pk=solver_run_id)
+def RunSolveOnObjects(availability, solver_options, solver_run):
 
   # Run the solver on the data.
   parser = csv.reader(availability.csv_data.splitlines(True))
@@ -767,9 +804,19 @@ def main():
   scheduler.Prepare()
   scheduler.Solve()
 
-  return 0
+
+def RunSolve(availability_id, solver_options_id, solver_run_id):
+  availability = solver.models.Availability.objects.get(pk=availability_id)
+  solver_options = solver.models.SolverOptions.objects.get(pk=solver_options_id)
+  solver_run = solver.models.SolverRun.objects.get(pk=solver_run_id)
+  RunSolveOnObjects(availability, solver_options, solver_run)
 
 
 if __name__ == "__main__":
-  sys.exit(main())
+  if len(sys.argv) != 4:
+    sys.exit(1)
+  availability_id = int(sys.argv[1])
+  solver_options_id = int(sys.argv[2])
+  solver_run_id = int(sys.argv[3])
+  sys.exit(RunSolve(availability_id, solver_options_id, solver_run_id))
 

@@ -72,7 +72,7 @@ Generic penalty and bonus terms.<br>
 Arrive Late Bonus: <input type="text" name="arrive_late_bonus" value="310" /><br>
 Leave Early Bonus: <input type="text" name="leave_early_bonus" value="320" /><br>
 Day Off Bonus: <input type="text" name="day_off_bonus" value="500" /><br>
-No Break Penalty (not currently implemented): <input type="text" name="no_break_penalty" value="0: 330, 30: 330, 31: 0, 240: 0, 300: 200, 330: 400, 360: 800, 420:1600, 480:3200, 540: 6400, 600: 12800, 660: 25600" size=100 /><br>
+No Break Penalty: <input type="text" name="no_break_penalty" value="0: 660, 60: 0, 240: 0, 300: 200, 330: 400, 360: 800, 420:1600, 480:3200, 540: 6400, 600: 12800, 660: 25600" size=150 /><br>
 Pupil Preference Penalty (values correspond to 2,3,4,5,etc): <input type="text" name="pupil_preference_penalty" value="100,201,403,807" /><br>
 Instructor Preference Penalty (values correspond to 2,3,4,5,etc): <input type="text" name="instructor_preference_penalty" value="305,620,1290,2600" /><br>
 <div id="complex_constraint" style='display: table;'>
@@ -88,14 +88,9 @@ Instructor Preference Penalty (values correspond to 2,3,4,5,etc): <input type="t
 <button type="button" onclick="alert('Not Implemented');">Save</button>
 <input type="submit" value="Solve" /><br>
 <br>
-Unimplemented features: X value for instructor preferences.<br>
-Unimplemented features: 0 value for any preferences.<br>
-Unimplemented features: No break penalties (other than default).<br>
 Unimplemented features: Generic Constraints (get me 30min off in this 120min chunk or 30min off in that 60min chunk, etc).<br>
 Unimplemented features: non-30min default session length.<br>
 Unimplemented features: Support penalty for consecutive day lessons.<br>
-Unimplemented features: Make schedule page have information from the schedule run (such as whether it was optimal).<br>
-Unimplemented features: test application with non-ascii characters<br>
 Unimplemented features: different penalties on different days.<br>
 Unimplemented features: investigate bug with scheduling longer session at the end of the day.<br>
 </form>
