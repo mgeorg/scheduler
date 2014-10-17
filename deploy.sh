@@ -19,7 +19,7 @@ else
   shift
 fi
 if [[ "$PRODUCTION" = "--production" ]]; then
-  sudo sed -i -r 's/^\s*PRODUCTION\s*=\s*FALSE\s*;?\s*$/PRODUCTION = TRUE/' scheduler/settings.py
+  sudo sed -i -r 's/^\s*PRODUCTION\s*=\s*False\s*;?\s*$/PRODUCTION = True/i' scheduler/settings.py
   sudo ./manage.py collectstatic
   sudo vi /etc/apache2/sites-enabled/000-default.conf
   sudo /etc/init.d/apache2 restart

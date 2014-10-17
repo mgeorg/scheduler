@@ -467,8 +467,10 @@ class Scheduler:
     return penalty_str + ' ' + product
 
   def MakePreferencePenalty(self):
-    objective = list()
-    self.all_objectives['preference'] = objective
+    instructor_objective = list()
+    pupil_objective = list()
+    self.all_objectives['instructor preference'] = instructor_objective
+    self.all_objectives['pupil preference'] = pupil_objective
     for pupil in range(self.spec.num_pupils):
       for slot in range(self.spec.num_slots):
         if self.spec.pupil_slot_preference[pupil][slot] > 1:
@@ -484,8 +486,12 @@ class Scheduler:
             penalty = (self.pupil_preference_penalty[
                 self.spec.pupil_slot_preference[pupil][slot]-2] *
                 self.spec.slot_time[slot].length)
-          objective.append(' +' + str(penalty) + ' ' + x)
-    self.objective.extend(objective)
+          if pupil == 0:
+            instructor_objective.append(' +' + str(penalty) + ' ' + x)
+          else:
+            pupil_objective.append(' +' + str(penalty) + ' ' + x)
+    self.objective.extend(instructor_objective)
+    self.objective.extend(pupil_objective)
 
   def MakeArriveLateBonus(self):
     objective = list()
@@ -618,7 +624,7 @@ class Scheduler:
         ('Solving with a time limit of ' + str(time_limit) +
         ' seconds of not improving the solution or a total time limit of ' +
         str(total_time_limit) + ' seconds\n' + self.header))
-    print(self)
+    # print(self)
     p = subprocess.Popen(
         ['clasp', '-t8', '--time-limit='+str(total_time_limit), self.opb_file],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
