@@ -461,10 +461,13 @@ class Scheduler:
       slots = []
       for slot in self.spec.slots_by_day[day]:
         slots.append(slot)
-        bonus = self.arrive_late_bonus * self.spec.slot_time[slot].length
-        term = self.MakeProd(-bonus, slots, 0, 1)
-        if term:
-          objective.append(term)
+        if len(slots) >= 2:
+          bonus = self.arrive_late_bonus * (self.spec.slot_time[slot].time-
+                                            self.spec.slot_time[slots[0]].time)
+          negations = [1] * (len(slots)-1) + [0]
+          term = self.MakeProd(-bonus, slots, 0, negations)
+          if term:
+            objective.append(term)
     self.objective.extend(objective)
 
   def MakeLeaveEarlyBonus(self):
@@ -477,11 +480,16 @@ class Scheduler:
       slots = []
       for slot in reversed(self.spec.slots_by_day[day]):
         slots.append(slot)
-        # This bonus is only the additional bonus from the latest slot.
-        bonus = self.leave_early_bonus * self.spec.slot_time[slot].length
-        term = self.MakeProd(-bonus, slots, 0, 1)
-        if term:
-          objective.append(term)
+        if len(slots) >= 2:
+          bonus = self.arrive_late_bonus * (
+              +self.spec.slot_time[slots[0]].time
+              +self.spec.slot_time[slots[0]].length
+              -self.spec.slot_time[slot].time
+              -self.spec.slot_time[slot].length)
+          negations = [1] * (len(slots)-1) + [0]
+          term = self.MakeProd(-bonus, slots, 0, negations)
+          if term:
+            objective.append(term)
     self.objective.extend(objective)
 
   def MakeNoBreakPenalty(self):
@@ -541,19 +549,14 @@ class Scheduler:
 
   def MakeDayOffBonus(self):
     """Assign a bonus for missing the entire day."""
-    # Note that we don't allow double counting as both arriving late
-    # and leaving early.  However, this bonus does stack with the larger
-    # of the other two bonuses.
 
     objective = list()
-    self.all_objectives['day off correction'] = objective
+    self.all_objectives['day off'] = objective
     for day in range(7):
       if not self.spec.slots_by_day[day]:
         continue
       workday_time = self.spec.day_range[day][1] - self.spec.day_range[day][0]
-      arrive_late_bonus = self.arrive_late_bonus * workday_time
-      leave_early_bonus = self.leave_early_bonus * workday_time
-      bonus = self.day_off_bonus * workday_time - min(arrive_late_bonus, leave_early_bonus)
+      bonus = self.day_off_bonus * workday_time
 
       term = self.MakeProd(-bonus, self.spec.slots_by_day[day], 0, 1)
       if term:
