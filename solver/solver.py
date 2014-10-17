@@ -39,7 +39,6 @@ SlotTimeSpec = collections.namedtuple('SlotTimeSpec', 'day time length')
 
 
 def ValFromXVar(var_str):
-  print(var_str)
   m = re.match(r'^\s*~?x(\d+)\s*$', var_str)
   assert m
   return int(m.group(1))

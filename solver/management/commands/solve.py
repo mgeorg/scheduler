@@ -12,15 +12,19 @@ class Command(BaseCommand):
   help = 'solves the given problem'
 
   def handle(self, *args, **options):
+    first_sleep = True
     if scheduler.settings.PRODUCTION:
       os.setgid(33)
       os.setuid(33)
     while True:
       all_requests = SolverRequest.objects.order_by('creation_time')
       if not all_requests:
+        if first_sleep:
+          print('sleeping')
+          first_sleep = False
         time.sleep(1)
-        print('sleeping')
         continue
+      first_sleep = True
 
       availability = all_requests[0].availability
       solver_options = all_requests[0].solver_options

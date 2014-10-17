@@ -13,6 +13,7 @@ if [[ "$DELETE_DATABASE" = "--delete" ]]; then
 fi
 
 if [[ "$DELETE_DATABASE" = "--production" ]]; then
+  PRODUCTION="$DELETE_DATABASE"
   echo "Deploying to production"
 else
   PRODUCTION=$1
