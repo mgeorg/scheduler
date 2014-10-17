@@ -96,8 +96,8 @@ class Constraints:
         # TODO(mgeorg) Add row for Lunch constraints.
         # TODO(mgeorg) Add a row for complicated constraints.
         self.ParsePupilRow(row)
-    self.DetermineSlotOcclusion()
     self.DetermineDayStartEndTimes()
+    self.DetermineSlotOcclusion()
 
   def ParseTimeRow(self, row):
     assert row[0] == 'Schedule', 'The first row must start with \'Schedule\'.'
@@ -197,29 +197,46 @@ class Constraints:
           self.restrictions_num[m.group(1)] = int(m.group(2))
 
   def DetermineSlotOcclusion(self):
+    """Determine the slot occlusions.
+
+    First we determine every slot that a pupil would take up (occlud) if
+    it was scheduled at that time.  This information is saved as
+    self.pupil_slot_occlusion.  Then we invert this mapping to
+    produce self.slot_pupil_occlusion.  Meaning, given a slot and a pupil,
+    provide all the slots which would produce an occlusion.
+    """
     self.pupil_slot_occlusion = [[None] * self.num_slots for _ in range(self.num_pupils)]
     self.pupil_slot_occlusion[0] = None
     for pupil in range(1, self.num_pupils):
-      for slot in range(self.num_slots):
-        lesson_length_left = self.pupil_lesson_length[pupil]
-        offset = 0
+      for day in range(7):
         slots = []
-        while lesson_length_left > 0:
-          slots.append(slot + offset)
-          if self.slot_time[slot + offset].length:
-            lesson_length_left -= self.slot_time[slot + offset].length
+        for slot_index in range(len(self.slots_by_day[day])):
+          slot = self.slots_by_day[day][slot_index]
+          lesson_length_left = self.pupil_lesson_length[pupil]
+          offset = 0
+          slots = []
+          while (lesson_length_left > 0 and
+                 slot_index+offset < len(self.slots_by_day[day])):
+            new_slot = self.slots_by_day[day][slot_index+offset]
+            slots.append(new_slot)
+            assert self.slot_time[new_slot].length
+            lesson_length_left -= self.slot_time[new_slot].length
+            offset += 1
+          if lesson_length_left <= 0:
+            self.pupil_slot_occlusion[pupil][slot] = slots
           else:
-            lesson_length_left = 0
-          offset += 1
-        self.pupil_slot_occlusion[pupil][slot] = slots
+            # Unable to schedule.
+            self.pupil_slot_occlusion[pupil][slot] = []
+            self.pupil_slot_preference[pupil][slot] = 0
     self.slot_pupil_occlusion = [[None] * self.num_pupils for _ in range(self.num_slots)]
     for pupil in range(1, self.num_pupils):
-      for slot in range(self.num_slots):
-        for occlud in self.pupil_slot_occlusion[pupil][slot]:
-          if self.slot_pupil_occlusion[occlud][pupil]:
-            self.slot_pupil_occlusion[occlud][pupil].append(slot)
-          else:
-            self.slot_pupil_occlusion[occlud][pupil] = [slot]
+      for day in range(7):
+        for slot in self.slots_by_day[day]:
+          for occlud in self.pupil_slot_occlusion[pupil][slot]:
+            if self.slot_pupil_occlusion[occlud][pupil]:
+              self.slot_pupil_occlusion[occlud][pupil].append(slot)
+            else:
+              self.slot_pupil_occlusion[occlud][pupil] = [slot]
 
   def DetermineDayStartEndTimes(self):
     """Determine the start and end times of each workday.
@@ -320,15 +337,30 @@ class Scheduler:
     for slot in range(self.spec.num_slots):
       for pupil in range(self.spec.num_pupils):
         var_name = 'p'+str(pupil)+'s'+str(slot)
-        self.available[var_name] = (
-            self.spec.pupil_slot_preference[pupil][slot] > 0 and
-            self.spec.pupil_slot_preference[0][slot] > 0)
-        if not self.available[var_name]:
-          if self.spec.pupil_slot_preference[pupil][slot] == -1:
-            # Consider this slot busy
-            self.fixed_value[var_name] = 1
-          else:
-            self.fixed_value[var_name] = 0
+        # This slot is only available if it is marked as available directly
+        # and if all of the slots it would occlud are marked as available
+        # for the instructor.
+        if pupil == 0:
+          self.available[var_name] = (
+              self.spec.pupil_slot_preference[pupil][slot] > 0)
+          if not self.available[var_name]:
+            if self.spec.pupil_slot_preference[pupil][slot] == -1:
+              # Consider this slot busy
+              self.fixed_value[var_name] = 1
+            else:
+              self.fixed_value[var_name] = 0
+        else:
+          self.available[var_name] = False
+          if self.spec.pupil_slot_preference[pupil][slot] > 0:
+            if (self.spec.pupil_slot_occlusion[pupil] and
+                self.spec.pupil_slot_occlusion[pupil][slot]):
+              # Check the instructor for each of the slots it would occlud.
+              available = True
+              for occlud in self.spec.pupil_slot_occlusion[pupil][slot]:
+                if self.spec.pupil_slot_preference[0][occlud] <= 0:
+                  available = False
+                  break
+              self.available[var_name] = available
 
   def MakeSlotConstraints(self):
     """Each lesson needs exactly one teacher per student.
@@ -341,13 +373,15 @@ class Scheduler:
     # Each session needs an instructor and only has 1 student.
     for slot in range(self.spec.num_slots):
       x_names = []
+      if not self.available['p0s'+str(slot)]:
+        continue
       for pupil in range(1, self.spec.num_pupils):
         for pupil_slot in self.spec.slot_pupil_occlusion[slot][pupil]:
           # Consider all slots that would occlud this slot if we scheduled them.
           var_name = 'p'+str(pupil)+'s'+str(pupil_slot)
           if self.available[var_name]:
             x_names.append(self.x_name[var_name])
-      if self.available['p0s'+str(slot)] and x_names:
+      if x_names:
         self.constraints.append('1 ' + self.x_name['p0s'+str(slot)] + ' -1 ' +
                                 ' -1 '.join(x_names) + ' = 0;')
 
