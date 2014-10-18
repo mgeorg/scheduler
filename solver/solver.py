@@ -37,11 +37,23 @@ version_number = 'v0.5'
 logger = logging.getLogger(__name__)
 SlotTimeSpec = collections.namedtuple('SlotTimeSpec', 'day time length')
 
-
 def ValFromXVar(var_str):
   m = re.match(r'^\s*~?x(\d+)\s*$', var_str)
   assert m
   return int(m.group(1))
+
+
+kTimeStringReString = r'\d+\s*:\s*\d+\s*(?:am|pm)?'
+kTimeStringReCapture = r'(\d+)\s*:\s*(\d+)\s*(am|pm)?'
+
+
+def TimeStringToMinInDay(string):
+  m = re.match(r'^\s*'+kTimeStringReCapture+r'\s*$', string.lower())
+  assert m
+  minutes = int(m.group(1)) * 60 + int(m.group(2))
+  if m.group(3) == 'pm':
+    minutes += 12*60
+  return minutes
 
 
 class Constraints:
@@ -298,6 +310,9 @@ class Scheduler:
     self.no_break_penalty = sorted(
         [(int(k),int(v)) for k,v in tmp_values.items() ])
 
+    self.complex_constraints_string = pref.complex_constraints
+    self.complex_constraint_intervals = list()
+    self.complex_constraints = list()
 
   def __str__(self):
     return ('self.x_name: ' + str(self.x_name) +
@@ -308,9 +323,13 @@ class Scheduler:
   def Prepare(self):
     self.MakeAvailabilityDict()
     self.MakeAllVariables()
+
     self.MakeRestrictionsConstraints()
     self.MakeSlotConstraints()
     self.MakePupilConstraints()
+    self.MakeComplexConstraintIntervals()
+    self.MakeComplexConstraints()
+
     self.MakePreferencePenalty()
     self.MakeArriveLateBonus()
     self.MakeLeaveEarlyBonus()
@@ -424,6 +443,52 @@ class Scheduler:
         x_names.sort(key=ValFromXVar)
         self.constraints.append(
             '1 ~' + ' +1 ~'.join(x_names) + ' >= ' + str(num) + ';')
+
+  def MakeComplexConstraintIntervals(self):
+    self.complex_constraint_intervals = list()
+    for constraint in self.complex_constraints_string.split(','):
+      self.complex_constraint_intervals.append(list())
+      for term in constraint.split(' OR '):
+        if not term:
+          continue
+        m = re.match(r'^\s*(?:(\d+)(min(?:ute)?s?|hours?)\s*)?([mtwrfsu])\s*('+
+                     kTimeStringReString+r')(?:-('+kTimeStringReString+'))$',
+                     term.lower())
+        assert m, (
+            'Complex constraint "%s" does not have correct format.' % term)
+        if m.group(1):
+          minutes = int(m.group(1))
+          if m.group(2).startswith('hour'):
+            minutes *= 60
+        else:
+          minutes = 0
+        day = self.spec.day_to_number[m.group(3).upper()]
+        time_in_day1 = TimeStringToMinInDay(m.group(4))
+        if m.group(5):
+          time_in_day2 = TimeStringToMinInDay(m.group(5))
+        else:
+          assert minutes, (
+              'Define length of slot or length of interval "%s"' % term)
+          time_in_day2 = time_in_day1 + minutes
+        if minutes == 0:
+          minutes = time_in_day2 - time_in_day1
+        assert time_in_day1 + minutes <= time_in_day2, (
+            'Length of slot is longer than length of interval "%s"' % term)
+        self.complex_constraint_intervals[-1].append(
+            (day, minutes, time_in_day1, time_in_day2))
+
+  def MakeComplexConstraints(self):
+    for constraint_interval_list in self.complex_constraint_intervals:
+      for constraint in constraint_interval_list:
+        pass
+    #for day in range(7):
+      #slots = []
+      #for slot in self.spec.slots_by_day[day]:
+        #slots.append(slot)
+        #if len(slots) >= 2:
+          #bonus = self.arrive_late_bonus * (self.spec.slot_time[slot].time-
+                                            #self.spec.slot_time[slots[0]].time)
+    
 
   def MakeProd(self, penalty, slots, pupil=0, negations=False):
     if isinstance(negations, list):

@@ -4,7 +4,6 @@ num_complex_row_added = 0;
 function addComplexOrConstraint(base_button) {
   var elem = document.createElement('input');
   elem.type = 'text';
-  elem.name = 'complex_constraint';
   elem.value = base_button.previousSibling.value;
   base_button.parentNode.insertBefore(document.createTextNode(' Or '), base_button);
   base_button.parentNode.insertBefore(elem, base_button);
@@ -28,7 +27,6 @@ function addComplexConstraint(constraint) {
 
   var elem = document.createElement('input');
   elem.type = 'text';
-  elem.name = 'complex_constraint';
   elem.value = constraint;
   constraint_cell3.appendChild(elem);
 
@@ -38,8 +36,8 @@ function addComplexConstraint(constraint) {
   elem.appendChild(document.createTextNode('Or...'));
   constraint_cell3.appendChild(elem);
 
-  var table = document.getElementById('complex_constraint');
-  table.appendChild(constraint_row);
+  var constraint_table = document.getElementById('complex_constraints');
+  constraint_table.appendChild(constraint_row);
 
   num_complex_row_added++;
 }
@@ -53,6 +51,41 @@ function addLunchBreak() {
   addComplexConstraint('30min S 11:30-13:30');
   addComplexConstraint('30min U 11:30-13:30');
 }
+
+function getComplexConstraint() {
+  var constraint_table = document.getElementById('complex_constraints');
+  var output = ''
+  first_row = true;
+  for (var row_index = 0; row_index < constraint_table.childNodes.length;
+       ++row_index) {
+    row = constraint_table.childNodes[row_index];
+    if (row.nodeName != "DIV") {
+      continue;
+    }
+    if (first_row) {
+      first_row = false;
+      continue;
+    }
+    if (output != '') {
+      output += ',';
+    }
+    first_cell = true
+    cell = row.childNodes[2]
+    for (var list_index = 0; list_index < cell.childNodes.length;
+         ++list_index) {
+      elem = cell.childNodes[list_index]
+      if (elem.nodeName == 'INPUT') {
+        if (!first_cell) {
+          output += ' OR ';
+        }
+        first_cell = false;
+        output += elem.value;
+      }
+    }
+  }
+  return output;
+}
+
 </script>
 <h1>Step 2: Generic Scheduling Preferences (id {{ availability.id }})</h1>
 The CSV data from <a href="{% url 'solver:initial' %}">Step 1</a>.  You probably don't want to edit this manually.  A later version of this application will provide a nice view for editing this data again.<br>
@@ -75,7 +108,7 @@ Day Off Bonus: <input type="text" name="day_off_bonus" value="500" /><br>
 No Break Penalty: <input type="text" name="no_break_penalty" value="0: 660, 60: 0, 240: 0, 300: 200, 330: 400, 360: 800, 420:1600, 480:3200, 540: 6400, 600: 12800, 660: 25600" size=150 /><br>
 Pupil Preference Penalty (values correspond to 2,3,4,5,etc): <input type="text" name="pupil_preference_penalty" value="100,201,403,807" /><br>
 Instructor Preference Penalty (values correspond to 2,3,4,5,etc): <input type="text" name="instructor_preference_penalty" value="305,620,1290,2600" /><br>
-<div id="complex_constraint" style='display: table;'>
+<div id="complex_constraints" style='display: table;'>
 <div style='display: table-row;'>
 <div style='display: table-cell;'>Complex Constraints (not implemented): </div>
 <div style='display: table-cell;'></div>
@@ -85,8 +118,9 @@ Instructor Preference Penalty (values correspond to 2,3,4,5,etc): <input type="t
 </div>
 </div>
 </div>
+<input id="complex_constraints_input" type="text" name="complex_constraints" value="" hidden />
 <button type="button" onclick="alert('Not Implemented');">Save</button>
-<input type="submit" value="Solve" /><br>
+<button type="submit" onclick="document.getElementById('complex_constraints_input').value = getComplexConstraint();">Solve</button><br>
 <br>
 Unimplemented features: Generic Constraints (get me 30min off in this 120min chunk or 30min off in that 60min chunk, etc).<br>
 Unimplemented features: non-30min default session length.<br>

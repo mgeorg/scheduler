@@ -84,6 +84,8 @@ def start_run(request):
       request.POST['no_break_penalty']+'}')
   solver_options.pupil_preference_penalty_list = request.POST['pupil_preference_penalty']
   solver_options.instructor_preference_penalty_list = request.POST['instructor_preference_penalty']
+  solver_options.complex_constraints = request.POST['complex_constraints']
+  print('complex_constraints: \"' + solver_options.complex_constraints+'\"')
   solver_options.save()
 
   solver_run = SolverRun()

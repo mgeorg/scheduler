@@ -17,6 +17,7 @@ class SolverOptions(models.Model):
       max_length=100)
   instructor_preference_penalty_list = models.CommaSeparatedIntegerField(
       max_length=100)
+  complex_constraints = models.CharField(max_length=1000)
 
   def __str__(self):
     return ('Arrive Late Bonus: ' + str(self.arrive_late_bonus) +
@@ -25,6 +26,7 @@ class SolverOptions(models.Model):
             '\nNo Break Penalty: ' + str(self.no_break_penalty) +
             '\nPupil Preference Penalties: ' + str(self.pupil_preference_penalty_list) +
             '\nInstructor Preference Penalties: ' + str(self.instructor_preference_penalty_list) +
+            '\nComplex Constraints: ' + str(self.complex_constraints) +
             '')
 
 class SolverRun(models.Model):
