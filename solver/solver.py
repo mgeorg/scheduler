@@ -101,8 +101,6 @@ class Constraints:
         self.ParseTimeRow(row)
       elif row[0] == 'Instructor1':
         self.ParseAvailableRow(row)
-      elif row[0] == 'Instructor1 Restrictions':
-        self.ParseRestrictionsRow(row)
       else:
         self.ParsePupilRow(row)
     self.DetermineDayStartEndTimes()
@@ -183,27 +181,6 @@ class Constraints:
         self.pupil_slot_preference[-1][i] = int(row[i+1])
       elif row[i+1] in ['x', 'X']:
         self.pupil_slot_preference[-1][i] = -1
-
-  def ParseRestrictionsRow(self, row):
-    assert row[0] == 'Instructor1 Restrictions'
-    assert self.num_slots > 0, 'The first row was malformed.'
-    assert len(row)-1 == self.num_slots, 'All rows must be of the same length (%d vs %d).' % (len(row)-1, self.num_slots)
-
-    for slot in range(self.num_slots):
-      row[slot+1] = row[slot+1].strip()
-      if not row[slot+1]:
-        continue
-      for restriction_spec in row[slot+1].split(','):
-        restriction_spec = restriction_spec.strip()
-        # TODO(mgeorg) Make Complex Restrictions support groups of slots.
-        m = re.match(r'^([^_]+)_(\d+)$', restriction_spec)
-        assert m, 'Restrictions cell does not have proper format: ' + restriction_spec
-        if m.group(1) in self.restrictions:
-          self.restrictions[m.group(1)].append(slot)
-          assert self.restrictions_num[m.group(1)] == int(m.group(2)), 'Number of slots to leave empty does not match'
-        else:
-          self.restrictions[m.group(1)] = [slot]
-          self.restrictions_num[m.group(1)] = int(m.group(2))
 
   def DetermineSlotOcclusion(self):
     """Determine the slot occlusions.
@@ -324,7 +301,6 @@ class Scheduler:
     self.MakeAvailabilityDict()
     self.MakeAllVariables()
 
-    self.MakeRestrictionsConstraints()
     self.MakeSlotConstraints()
     self.MakePupilConstraints()
     self.MakeComplexConstraints()
@@ -425,23 +401,6 @@ class Scheduler:
               x_names.append(self.x_name[var_name])
           if x_names:
             self.constraints.append('-1 ' + ' -1 '.join(x_names) + ' >= -1;')
-                                   
-
-  def MakeRestrictionsConstraints(self):
-    for restriction_name, slots in self.spec.restrictions.items():
-      num = self.spec.restrictions_num[restriction_name]
-      x_names = []
-      for slot in slots:
-        var_name = 'p0s'+str(slot)
-        if not self.available[var_name]:
-          num -= 1
-          continue
-        x = self.x_name[var_name]
-        x_names.append(x)
-      if x_names and num > 0:
-        x_names.sort(key=ValFromXVar)
-        self.constraints.append(
-            '1 ~' + ' +1 ~'.join(x_names) + ' >= ' + str(num) + ';')
 
   def SetComplexConstraintIntervals(self):
     self.complex_constraint_intervals = list()
