@@ -327,7 +327,6 @@ class Scheduler:
     self.MakeRestrictionsConstraints()
     self.MakeSlotConstraints()
     self.MakePupilConstraints()
-    self.MakeComplexConstraintIntervals()
     self.MakeComplexConstraints()
 
     self.MakePreferencePenalty()
@@ -444,7 +443,7 @@ class Scheduler:
         self.constraints.append(
             '1 ~' + ' +1 ~'.join(x_names) + ' >= ' + str(num) + ';')
 
-  def MakeComplexConstraintIntervals(self):
+  def SetComplexConstraintIntervals(self):
     self.complex_constraint_intervals = list()
     for constraint in self.complex_constraints_string.split(','):
       self.complex_constraint_intervals.append(list())
@@ -477,10 +476,10 @@ class Scheduler:
         self.complex_constraint_intervals[-1].append(
             (day, minutes, time_in_day1, time_in_day2))
 
-  def MakeComplexConstraints(self):
+  def SetComplexConstraints(self):
     self.complex_constraints = []
     for constraint_interval_list in self.complex_constraint_intervals:
-      self.complex_constraints.append([])
+      constraints = []
       for day, minutes, start_time, end_time in constraint_interval_list:
         slots = []
         for slot in self.spec.slots_by_day[day]:
@@ -499,8 +498,25 @@ class Scheduler:
             if interval <= 0:
               break
           if interval <= 0:
-            self.complex_constraints[-1].append(slot_set)
-    print(self.complex_constraints)
+            constraints.append(slot_set)
+      if constraints:
+        self.complex_constraints.append(constraints)
+
+  def MakeComplexConstraints(self):
+    self.SetComplexConstraintIntervals()
+    self.SetComplexConstraints()
+    
+    for constraint_list in self.complex_constraints:
+      true_terms = 0
+      terms = []
+      for slots in constraint_list:
+        (possible, term) = self.MakeProd(1, slots, 0, True)
+        if term:
+          terms.append(term)
+        else:
+          true_terms += possible
+      if terms and true_terms < 1:
+        self.constraints.append(' '.join(terms) + ' >= 1;')
 
   def MakeProd(self, penalty, slots, pupil=0, negations=False):
     if isinstance(negations, list):
@@ -543,7 +559,7 @@ class Scheduler:
     if len(x_names) > 1:
       self.all_products[product] = 1
       self.max_product_size = max(self.max_product_size, len(x_names))
-    return penalty_str + ' ' + product
+    return (penalty, penalty_str + ' ' + product)
 
   def MakePreferencePenalty(self):
     instructor_objective = list()
@@ -566,9 +582,9 @@ class Scheduler:
                 self.spec.pupil_slot_preference[pupil][slot]-2] *
                 self.spec.slot_time[slot].length)
           if pupil == 0:
-            instructor_objective.append(' +' + str(penalty) + ' ' + x)
+            instructor_objective.append('+' + str(penalty) + ' ' + x)
           else:
-            pupil_objective.append(' +' + str(penalty) + ' ' + x)
+            pupil_objective.append('+' + str(penalty) + ' ' + x)
     self.objective.extend(instructor_objective)
     self.objective.extend(pupil_objective)
 
@@ -600,7 +616,7 @@ class Scheduler:
       for slot in reversed(self.spec.slots_by_day[day]):
         slots.append(slot)
         if len(slots) >= 2:
-          bonus = self.arrive_late_bonus * (
+          bonus = self.leave_early_bonus * (
               +self.spec.slot_time[slots[0]].time
               +self.spec.slot_time[slots[0]].length
               -self.spec.slot_time[slot].time
@@ -705,7 +721,6 @@ class Scheduler:
         ('Solving with a time limit of ' + str(time_limit) +
         ' seconds of not improving the solution or a total time limit of ' +
         str(total_time_limit) + ' seconds\n' + self.header))
-    # print(self)
     p = subprocess.Popen(
         ['clasp', '-t8', '--time-limit='+str(total_time_limit), self.opb_file],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
@@ -920,7 +935,7 @@ def ExecuteSolverRun(solver_run):
       continue
     table_data.append([x.strip() for x in row])
 
-  constraints = solver.Constraints()
+  constraints = Constraints()
   constraints.ParseIterator(table_data)
 
   scheduler = Scheduler(constraints, solver_run)
