@@ -525,27 +525,29 @@ class Scheduler:
     instructor_correction = 0
     pupil_correction = 0
     for pupil in range(self.spec.num_pupils):
-      for slot in range(self.spec.num_slots):
-        if self.spec.pupil_slot_preference[pupil][slot] > 1:
-          if pupil == 0:
-            penalty = (self.instructor_preference_penalty[
-                self.spec.pupil_slot_preference[pupil][slot]-2] *
-                self.spec.slot_time[slot].length)
+      for day in range(7):
+        for slot in self.spec.slots_by_day[day]:
+          penalty = 0
+          if self.spec.pupil_slot_preference[pupil][slot] > 1:
+            if pupil == 0:
+              penalty = (self.instructor_preference_penalty[
+                  self.spec.pupil_slot_preference[pupil][slot]-2] *
+                  self.spec.slot_time[slot].length)
+            else:
+              penalty = (self.pupil_preference_penalty[
+                  self.spec.pupil_slot_preference[pupil][slot]-2] *
+                  self.spec.slot_time[slot].length)
+          (penalty, term) = self.MakeProd(penalty, [slot], pupil, False)
+          if term:
+            if pupil == 0:
+              instructor_objective.append(term)
+            else:
+              pupil_objective.append(term)
           else:
-            penalty = (self.pupil_preference_penalty[
-                self.spec.pupil_slot_preference[pupil][slot]-2] *
-                self.spec.slot_time[slot].length)
-        (penalty, term) = self.MakeProd(penalty, [slot], pupil, False)
-        if term:
-          if pupil == 0:
-            instructor_objective.append(term)
-          else:
-            pupil_objective.append(term)
-        else:
-          if pupil == 0:
-            instructor_correction += penalty
-          else:
-            pupil_correction += penalty
+            if pupil == 0:
+              instructor_correction += penalty
+            else:
+              pupil_correction += penalty
     self.all_objectives['instructor preference'] = (
         instructor_objective, instructor_correction)
     self.all_objectives['pupil preference'] = (
@@ -912,7 +914,8 @@ def ExecuteSolverRun(solver_run):
       continue
     table_data.append([x.strip() for x in row])
 
-  constraints = Constraints(default_length=availability.default_length)
+  constraints = Constraints(
+      default_length=solver_run.availability.default_length)
   constraints.ParseIterator(table_data)
 
   scheduler = Scheduler(constraints, solver_run)
