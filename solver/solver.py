@@ -361,8 +361,6 @@ class Scheduler:
     Notice that a student may fill the lesson because of overflow from
     an earlier slot which has gone past its end time.
     """
-    # TODO(mgeorg) There is a bug here with scheduling long lessons at the
-    # end of the day.
     # Each session needs an instructor and only has 1 student.
     for slot in range(self.spec.num_slots):
       x_names = []
@@ -464,7 +462,7 @@ class Scheduler:
   def MakeComplexConstraints(self):
     self.SetComplexConstraintIntervals()
     self.SetComplexConstraints()
-    
+
     for constraint_list in self.complex_constraints:
       true_terms = 0
       terms = []
@@ -606,7 +604,7 @@ class Scheduler:
     for i in range(k, 24*60):
       v = float(v) + diff
       length_to_penalty[i] = v
-      
+
     objective = list()
     self.all_objectives['no break'] = objective
     # Assign a penalty for every minute the instructor doesn't have a
@@ -784,7 +782,7 @@ class Scheduler:
           var_names.append(var_name)
 
       self.solver_run.scheduler_output += '\n'
-   
+
       self.schedule = [None] * self.spec.num_slots
       self.busy = [None] * self.spec.num_slots
       pupil_schedule = dict()
@@ -883,7 +881,6 @@ class Scheduler:
           'Penalty ' + str(penalty) + ' for term \"' + name + '\"\n')
     self.solver_run.scheduler_output += (
         'Total Penalty ' + str(total_penalty) + '\n')
-
 
 def ExecuteSolverRun(solver_run):
   # Run the solver on the data.
