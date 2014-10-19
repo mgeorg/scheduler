@@ -3,9 +3,9 @@ import csv
 import time
 
 from django.core.management.base import BaseCommand, CommandError
-from solver.models import Availability, SolverOptions, SolverRun, SolverRequest
-import solver.solver
-import scheduler.settings
+from solver.models import Availability, SolverOptions, SolverRun
+from solver import solver
+from scheduler import settings
 
 class Command(BaseCommand):
   args = '<availability_id solver_options_id solver_run_id>'
@@ -13,11 +13,11 @@ class Command(BaseCommand):
 
   def handle(self, *args, **options):
     first_sleep = True
-    if scheduler.settings.PRODUCTION:
+    if settings.PRODUCTION:
       os.setgid(33)
       os.setuid(33)
     while True:
-      all_requests = SolverRequest.objects.order_by('creation_time')
+      all_requests = SolverRun.objects.filter(state=SolverRun.IN_QUEUE).order_by('creation_time')
       if not all_requests:
         if first_sleep:
           print('sleeping')
@@ -26,15 +26,10 @@ class Command(BaseCommand):
         continue
       first_sleep = True
 
-      availability = all_requests[0].availability
-      solver_options = all_requests[0].solver_options
-      solver_run = all_requests[0].solver_run
+      solver_run = all_requests[0]
 
-      print('Starting request ' + str(all_requests[0].id) +
-            ' availability ' + str(availability.id) +
-            ' solver_options ' + str(solver_options.id) +
-            ' solver_run ' + str(solver_run.id))
+      print('Starting run ' + str(solver_run.id) +
+            ' availability ' + str(solver_run.availability.id) +
+            ' solver_options ' + str(solver_run.options.id))
      
-      solver.solver.RunSolveOnObjects(availability, solver_options, solver_run)
-
-      all_requests[0].delete()
+      solver.ExecuteSolverRun(solver_run)

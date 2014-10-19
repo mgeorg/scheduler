@@ -10,7 +10,7 @@ from django.views import generic
 from django.core.urlresolvers import reverse
 
 from solver.models import *
-import solver.solver
+from solver import solver
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ class ScheduleView(generic.DetailView):
 def home(request):
   template = loader.get_template('solver/instructions.html')
   context = RequestContext(request, {
-      'version_number': solver.solver.version_number
+      'version_number': solver.version_number
       })
   return HttpResponse(template.render(context))
 
@@ -85,22 +85,16 @@ def start_run(request):
   solver_options.pupil_preference_penalty_list = request.POST['pupil_preference_penalty']
   solver_options.instructor_preference_penalty_list = request.POST['instructor_preference_penalty']
   solver_options.complex_constraints = request.POST['complex_constraints']
-  print('complex_constraints: \"' + solver_options.complex_constraints+'\"')
   solver_options.save()
 
   solver_run = SolverRun()
-  solver_run.solver_version = solver.solver.version_number
+  solver_run.solver_version = solver.version_number
   solver_run.options = solver_options
+  solver_run.availability = availability
   solver_run.score = None
   solver_run.state = SolverRun.IN_QUEUE
   solver_run.solution = SolverRun.NO_SOLUTION
   solver_run.save()
-
-  solver_request = SolverRequest()
-  solver_request.availability = availability
-  solver_request.solver_options = solver_options
-  solver_request.solver_run = solver_run
-  solver_request.save()
 
   return HttpResponseRedirect(reverse('solver:run', args=(solver_run.id,)))
 

@@ -33,7 +33,10 @@ class SolverRun(models.Model):
   creation_time = models.DateTimeField(auto_now_add=True)
   solver_version = models.CharField(max_length=10)
   deleted = models.BooleanField(default=False)
-  options = models.OneToOneField(SolverOptions)
+
+  options = models.ForeignKey(SolverOptions)
+  availability = models.ForeignKey(Availability)
+
   score = models.IntegerField(null=True, blank=True)
   scheduler_output = models.TextField()
   solver_output = models.TextField()
@@ -61,13 +64,6 @@ class SolverRun(models.Model):
       (OPTIMAL, 'Optimal Solution Found'),
   )
   solution = models.CharField(max_length=1, choices=SOLUTION_CHOICES)
-
-class SolverRequest(models.Model):
-  creation_time = models.DateTimeField(auto_now_add=True)
-  deleted = models.BooleanField(default=False)
-  availability = models.ForeignKey(Availability)
-  solver_options = models.ForeignKey(SolverOptions)
-  solver_run = models.ForeignKey(SolverRun)
 
 class Schedule(models.Model):
   creation_time = models.DateTimeField(auto_now_add=True)

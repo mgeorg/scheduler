@@ -30,7 +30,7 @@ import sys
 import tempfile
 import time
 
-import solver
+from solver.models import *
 
 version_number = 'v0.5'
 
@@ -104,8 +104,6 @@ class Constraints:
       elif row[0] == 'Instructor1 Restrictions':
         self.ParseRestrictionsRow(row)
       else:
-        # TODO(mgeorg) Add row for Lunch constraints.
-        # TODO(mgeorg) Add a row for complicated constraints.
         self.ParsePupilRow(row)
     self.DetermineDayStartEndTimes()
     self.DetermineSlotOcclusion()
@@ -283,7 +281,9 @@ class Constraints:
 
 
 class Scheduler:
-  def __init__(self, spec, pref, solver_run):
+  def __init__(self, spec, solver_run):
+    pref = solver_run.options
+
     self.solver_run = solver_run
     self.solver_run.version = version_number
 
@@ -452,7 +452,7 @@ class Scheduler:
         if not term:
           continue
         m = re.match(r'^\s*(?:(\d+)(min(?:ute)?s?|hours?)\s*)?([mtwrfsu])\s*('+
-                     kTimeStringReString+r')(?:-('+kTimeStringReString+'))$',
+                     kTimeStringReString+r')(?:-('+kTimeStringReString+'))?$',
                      term.lower())
         assert m, (
             'Complex constraint "%s" does not have correct format.' % term)
@@ -478,17 +478,29 @@ class Scheduler:
             (day, minutes, time_in_day1, time_in_day2))
 
   def MakeComplexConstraints(self):
+    self.complex_constraints = []
     for constraint_interval_list in self.complex_constraint_intervals:
-      for constraint in constraint_interval_list:
-        pass
-    #for day in range(7):
-      #slots = []
-      #for slot in self.spec.slots_by_day[day]:
-        #slots.append(slot)
-        #if len(slots) >= 2:
-          #bonus = self.arrive_late_bonus * (self.spec.slot_time[slot].time-
-                                            #self.spec.slot_time[slots[0]].time)
-    
+      self.complex_constraints.append([])
+      for day, minutes, start_time, end_time in constraint_interval_list:
+        slots = []
+        for slot in self.spec.slots_by_day[day]:
+          if (start_time < self.spec.slot_time[slot].time + 
+                           self.spec.slot_time[slot].length and
+              end_time > self.spec.slot_time[slot].time):
+            slots.append(slot)
+        for slot_index in range(len(slots)):
+          slot = slots[slot_index]
+          slot_set = []
+          interval = minutes
+          for slot_index2 in range(slot_index, len(slots)):
+            slot2 = slots[slot_index2]
+            slot_set.append(slot2)
+            interval -= self.spec.slot_time[slot].length
+            if interval <= 0:
+              break
+          if interval <= 0:
+            self.complex_constraints[-1].append(slot_set)
+    print(self.complex_constraints)
 
   def MakeProd(self, penalty, slots, pupil=0, negations=False):
     if isinstance(negations, list):
@@ -496,7 +508,8 @@ class Scheduler:
     else:
       negations = [negations for i in range(len(slots))]
     if penalty == 0:
-      return ''
+      # Whether true or not this term is irrelevant.
+      return (0, '')
     x_names = []
     for i in range(len(slots)):
       slot = slots[i]
@@ -506,7 +519,8 @@ class Scheduler:
         # and fixed == 0 and not negation means prod has value 0
         # otherwise the value for this term is 1 and the sum goes on.
         if self.fixed_value[var_name] == negations[i]:
-          return ''
+          # Product is false.
+          return (0, '')
         else:
           continue
       if negations[i]:
@@ -515,7 +529,8 @@ class Scheduler:
         x_names.append(self.x_name[var_name])
 
     if not x_names:
-      return ''
+      # Product is always true.
+      return (penalty, '')
 
     if penalty > 0:
       penalty_str = '+' + str(penalty)
@@ -569,7 +584,7 @@ class Scheduler:
           bonus = self.arrive_late_bonus * (self.spec.slot_time[slot].time-
                                             self.spec.slot_time[slots[0]].time)
           negations = [1] * (len(slots)-1) + [0]
-          term = self.MakeProd(-bonus, slots, 0, negations)
+          (unused_penalty, term) = self.MakeProd(-bonus, slots, 0, negations)
           if term:
             objective.append(term)
     self.objective.extend(objective)
@@ -591,7 +606,7 @@ class Scheduler:
               -self.spec.slot_time[slot].time
               -self.spec.slot_time[slot].length)
           negations = [1] * (len(slots)-1) + [0]
-          term = self.MakeProd(-bonus, slots, 0, negations)
+          (unused_penalty, term) = self.MakeProd(-bonus, slots, 0, negations)
           if term:
             objective.append(term)
     self.objective.extend(objective)
@@ -646,7 +661,8 @@ class Scheduler:
           if slot_index != len(self.spec.slots_by_day[day])-1:
             negations = negations + [1]
             all_slots = all_slots + [self.spec.slots_by_day[day][slot_index+1]]
-          term = self.MakeProd(penalty, all_slots, 0, negations)
+          (unused_penalty, term) = self.MakeProd(
+              penalty, all_slots, 0, negations)
           if term:
             objective.append(term)
     self.objective.extend(objective)
@@ -662,7 +678,8 @@ class Scheduler:
       workday_time = self.spec.day_range[day][1] - self.spec.day_range[day][0]
       bonus = self.day_off_bonus * workday_time
 
-      term = self.MakeProd(-bonus, self.spec.slots_by_day[day], 0, 1)
+      (unused_penalty, term) = self.MakeProd(
+          -bonus, self.spec.slots_by_day[day], 0, 1)
       if term:
         objective.append(term)
     self.objective.extend(objective)
@@ -853,7 +870,7 @@ class Scheduler:
                       extra + self.PaddedSlotName(slot) + ' ***Forced to be Free***\n')
         text_schedule += '\n'
       self.EvaluateAllObjectives()
-      self.output_schedule = solver.models.Schedule()
+      self.output_schedule = Schedule()
       self.output_schedule.score = self.solver_run.score
       self.output_schedule.schedule = text_schedule
       self.output_schedule.created_by = self.solver_run
@@ -894,29 +911,38 @@ class Scheduler:
         'Total Penalty ' + str(total_penalty) + '\n')
 
 
-def RunSolveOnObjects(availability, solver_options, solver_run):
-
+def ExecuteSolverRun(solver_run):
   # Run the solver on the data.
-  parser = csv.reader(availability.csv_data.splitlines(True))
+  parser = csv.reader(solver_run.availability.csv_data.splitlines(True))
   table_data = []
   for row in parser:
     if not row:
       continue
     table_data.append([x.strip() for x in row])
 
-  constraints = solver.solver.Constraints()
+  constraints = solver.Constraints()
   constraints.ParseIterator(table_data)
 
-  scheduler = solver.solver.Scheduler(constraints, solver_options, solver_run)
+  scheduler = Scheduler(constraints, solver_run)
   scheduler.Prepare()
   scheduler.Solve()
 
 
-def RunSolve(availability_id, solver_options_id, solver_run_id):
-  availability = solver.models.Availability.objects.get(pk=availability_id)
-  solver_options = solver.models.SolverOptions.objects.get(pk=solver_options_id)
-  solver_run = solver.models.SolverRun.objects.get(pk=solver_run_id)
-  RunSolveOnObjects(availability, solver_options, solver_run)
+def RunSolve(availability_id, solver_options_id):
+  availability = Availability.objects.get(pk=availability_id)
+  solver_options = SolverOptions.objects.get(pk=solver_options_id)
+
+  solver_run = SolverRun()
+  solver_run.solver_version = solver.version_number
+  solver_run.options = solver_options
+  solver_run.availability = availability
+  solver_run.score = None
+  solver_run.state = SolverRun.IN_QUEUE
+  solver_run.solution = SolverRun.NO_SOLUTION
+  # Don't save yet, since we want to solve it immediately, not place it into
+  # the queue.
+
+  ExecuteSolverRun(solver_run)
 
 
 if __name__ == "__main__":
@@ -924,6 +950,5 @@ if __name__ == "__main__":
     sys.exit(1)
   availability_id = int(sys.argv[1])
   solver_options_id = int(sys.argv[2])
-  solver_run_id = int(sys.argv[3])
-  sys.exit(RunSolve(availability_id, solver_options_id, solver_run_id))
+  sys.exit(RunSolve(availability_id, solver_options_id))
 
