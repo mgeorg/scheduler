@@ -57,7 +57,8 @@ def TimeStringToMinInDay(string):
 
 
 class Constraints:
-  def __init__(self):
+  def __init__(self, default_length):
+    self.default_length = default_length
     self.num_slots = 0
     self.num_pupils = 0
     self.slot_name = []
@@ -160,7 +161,7 @@ class Constraints:
       row[0] = row[0].strip()
       self.pupil_lesson_length.append(int(m.group(2)))
     else:
-      self.pupil_lesson_length.append(30)
+      self.pupil_lesson_length.append(self.default_length)
     m = re.match(r'(.*)\[\s*x\s*(\d+)\s*\]\s*(.*)', row[0])
     if m:
       row[0] = m.group(1)+m.group(3)
@@ -521,15 +522,11 @@ class Scheduler:
   def MakePreferencePenalty(self):
     instructor_objective = list()
     pupil_objective = list()
-    self.all_objectives['instructor preference'] = instructor_objective
-    self.all_objectives['pupil preference'] = pupil_objective
+    instructor_correction = 0
+    pupil_correction = 0
     for pupil in range(self.spec.num_pupils):
       for slot in range(self.spec.num_slots):
         if self.spec.pupil_slot_preference[pupil][slot] > 1:
-          var_name = 'p'+str(pupil)+'s'+str(slot)
-          if not self.available[var_name]:
-            continue
-          x = self.x_name[var_name]
           if pupil == 0:
             penalty = (self.instructor_preference_penalty[
                 self.spec.pupil_slot_preference[pupil][slot]-2] *
@@ -538,16 +535,27 @@ class Scheduler:
             penalty = (self.pupil_preference_penalty[
                 self.spec.pupil_slot_preference[pupil][slot]-2] *
                 self.spec.slot_time[slot].length)
+        (penalty, term) = self.MakeProd(penalty, [slot], pupil, False)
+        if term:
           if pupil == 0:
-            instructor_objective.append('+' + str(penalty) + ' ' + x)
+            instructor_objective.append(term)
           else:
-            pupil_objective.append('+' + str(penalty) + ' ' + x)
+            pupil_objective.append(term)
+        else:
+          if pupil == 0:
+            instructor_correction += penalty
+          else:
+            pupil_correction += penalty
+    self.all_objectives['instructor preference'] = (
+        instructor_objective, instructor_correction)
+    self.all_objectives['pupil preference'] = (
+        pupil_objective, pupil_correction)
     self.objective.extend(instructor_objective)
     self.objective.extend(pupil_objective)
 
   def MakeArriveLateBonus(self):
     objective = list()
-    self.all_objectives['arrive late'] = objective
+    correction = 0
     # Assign a bonus for every minute the instructor comes in late.
     for day in range(7):
       slots = []
@@ -557,14 +565,17 @@ class Scheduler:
           bonus = self.arrive_late_bonus * (self.spec.slot_time[slot].time-
                                             self.spec.slot_time[slots[0]].time)
           negations = [1] * (len(slots)-1) + [0]
-          (unused_penalty, term) = self.MakeProd(-bonus, slots, 0, negations)
+          (actual_penalty, term) = self.MakeProd(-bonus, slots, 0, negations)
           if term:
             objective.append(term)
+          else:
+            correction += actual_penalty
+    self.all_objectives['arrive late'] = (objective, correction)
     self.objective.extend(objective)
 
   def MakeLeaveEarlyBonus(self):
     objective = list()
-    self.all_objectives['leave early'] = objective
+    correction = 0
     # Assign a bonus for every minute the instructor leaves early.
     # TODO(mgeorg) This isn't perfect, it assumes that the entire slot
     # is used, when a lesson might have just barely used some time up.
@@ -579,9 +590,12 @@ class Scheduler:
               -self.spec.slot_time[slot].time
               -self.spec.slot_time[slot].length)
           negations = [1] * (len(slots)-1) + [0]
-          (unused_penalty, term) = self.MakeProd(-bonus, slots, 0, negations)
+          (actual_penalty, term) = self.MakeProd(-bonus, slots, 0, negations)
           if term:
             objective.append(term)
+          else:
+            correction += actual_penalty
+    self.all_objectives['leave early'] = (objective, correction)
     self.objective.extend(objective)
 
   def MakeNoBreakPenalty(self):
@@ -606,7 +620,7 @@ class Scheduler:
       length_to_penalty[i] = v
 
     objective = list()
-    self.all_objectives['no break'] = objective
+    correction = 0
     # Assign a penalty for every minute the instructor doesn't have a
     # break past some allowable threshold.
     for day in range(7):
@@ -634,17 +648,20 @@ class Scheduler:
           if slot_index != len(self.spec.slots_by_day[day])-1:
             negations = negations + [1]
             all_slots = all_slots + [self.spec.slots_by_day[day][slot_index+1]]
-          (unused_penalty, term) = self.MakeProd(
+          (actual_penalty, term) = self.MakeProd(
               penalty, all_slots, 0, negations)
           if term:
             objective.append(term)
+          else:
+            correction += actual_penalty
+    self.all_objectives['no break'] = (objective, correction)
     self.objective.extend(objective)
 
   def MakeDayOffBonus(self):
     """Assign a bonus for missing the entire day."""
 
     objective = list()
-    self.all_objectives['day off'] = objective
+    correction = 0
     for day in range(7):
       if not self.spec.slots_by_day[day]:
         continue
@@ -655,6 +672,9 @@ class Scheduler:
           -bonus, self.spec.slots_by_day[day], 0, 1)
       if term:
         objective.append(term)
+      else:
+        correction += actual_penalty
+    self.all_objectives['day off'] = (objective, correction)
     self.objective.extend(objective)
 
   def WriteFile(self):
@@ -874,8 +894,9 @@ class Scheduler:
 
   def EvaluateAllObjectives(self):
     total_penalty = 0
-    for name, objective in self.all_objectives.items():
-      penalty = self.EvaluateObjective(objective)
+    for name, objective_pair in self.all_objectives.items():
+      (objective, correction) = objective_pair
+      penalty = self.EvaluateObjective(objective) + correction
       total_penalty += penalty
       self.solver_run.scheduler_output += (
           'Penalty ' + str(penalty) + ' for term \"' + name + '\"\n')
