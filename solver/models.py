@@ -7,6 +7,7 @@ class Availability(models.Model):
   slot_times = models.TextField()
   constraints = models.TextField()
   csv_data = models.TextField()
+  default_length = models.IntegerField(default=30)
 
 class SolverOptions(models.Model):
   arrive_late_bonus = models.IntegerField()

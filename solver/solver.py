@@ -891,7 +891,7 @@ def ExecuteSolverRun(solver_run):
       continue
     table_data.append([x.strip() for x in row])
 
-  constraints = Constraints()
+  constraints = Constraints(default_length=availability.default_length)
   constraints.ParseIterator(table_data)
 
   scheduler = Scheduler(constraints, solver_run)
