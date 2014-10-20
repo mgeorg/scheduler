@@ -492,18 +492,14 @@ class Scheduler:
       # Whether true or not this term is irrelevant.
       return (0, '')
     x_names = []
-    print(negations)
     for i in range(len(slots)):
       slot = slots[i]
       var_name = 'p'+str(pupil)+'s'+str(slot)
-      print(var_name)
       if not self.available[var_name]:
         # fixed == 1 and negation means prod has value 0
         # and fixed == 0 and not negation means prod has value 0
         # otherwise the value for this term is 1 and the sum goes on.
-        print(var_name + ' ' + str(self.fixed_value[var_name]) + ' ' + str(negations[i]))
         if self.fixed_value[var_name] == negations[i]:
-          print('always false')
           # Product is false.
           return (0, '')
         else:
@@ -514,7 +510,6 @@ class Scheduler:
         x_names.append(self.x_name[var_name])
 
     if not x_names:
-      print('always true')
       # Product is always true.
       return (penalty, '')
 
@@ -635,7 +630,6 @@ class Scheduler:
 
     objective = list()
     correction = 0
-    print('---')
     # Assign a penalty for every minute the instructor doesn't have a
     # break past some allowable threshold.
     for day in range(7):
@@ -671,8 +665,6 @@ class Scheduler:
             correction += actual_penalty
     self.all_objectives['no break'] = (objective, correction)
     self.objective.extend(objective)
-    print('\n'.join(objective))
-    print(correction)
 
   def MakeDayOffBonus(self):
     """Assign a bonus for missing the entire day."""
