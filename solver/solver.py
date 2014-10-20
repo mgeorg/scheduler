@@ -33,7 +33,7 @@ import traceback
 
 from solver.models import *
 
-version_number = 'v0.5'
+version_number = 'v0.6'
 
 logger = logging.getLogger(__name__)
 SlotTimeSpec = collections.namedtuple('SlotTimeSpec', 'day time length')
