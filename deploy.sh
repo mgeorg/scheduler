@@ -25,7 +25,7 @@ if [[ "$PRODUCTION" = "--production" ]]; then
   sudo vi /etc/apache2/sites-enabled/000-default.conf
   sudo /etc/init.d/apache2 restart
   sudo chown mgeorg:www-data -R .
-  sudo chown mgeorg:www-data /tmp/django*.log
+  sudo chown mgeorg:www-data /var/log/django/*.log
   sudo chmod 660 /tmp/django*.log
 fi
 
