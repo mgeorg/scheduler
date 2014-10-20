@@ -29,7 +29,7 @@ You do not have permission to view this schedule.
 {% endif %}
 {% endfor %}
 
-{% if object.state != solverrun.DONE %}
+{% if object.state == solverrun.RUNNING or object.state == solverrun.IN_QUEUE %}
 <script>
 setTimeout(function(){
   window.location.reload(1);

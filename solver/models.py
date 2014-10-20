@@ -50,15 +50,15 @@ class SolverRun(models.Model):
   scheduler_output = models.TextField()
   solver_output = models.TextField()
 
-  NOT_STARTED = 'n'
   IN_QUEUE = 'q'
   RUNNING = 'r'
   DONE = 'd'
+  FAILED = 'f'
   SOLVER_STATE_CHOICES = (
-      (NOT_STARTED, 'Solver Not Started'),
       (IN_QUEUE, 'Solver Problem Queued'),
       (RUNNING, 'Solver Running'),
       (DONE, 'Solver Done'),
+      (FAILED, 'Solver Failed'),
   )
   state = models.CharField(max_length=1, choices=SOLVER_STATE_CHOICES)
 

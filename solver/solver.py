@@ -29,6 +29,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import traceback
 
 from solver.models import *
 
@@ -925,22 +926,28 @@ class Scheduler:
         str(total_correction) + ')\n')
 
 def ExecuteSolverRun(solver_run):
-  # Run the solver on the data.
-  parser = csv.reader(solver_run.availability.csv_data.splitlines(True))
-  table_data = []
-  for row in parser:
-    if not row:
-      continue
-    table_data.append([x.strip() for x in row])
+  try:
+    # Run the solver on the data.
+    parser = csv.reader(solver_run.availability.csv_data.splitlines(True))
+    table_data = []
+    for row in parser:
+      if not row:
+        continue
+      table_data.append([x.strip() for x in row])
 
-  constraints = Constraints(
-      default_length=solver_run.availability.default_length)
-  constraints.ParseIterator(table_data)
+    constraints = Constraints(
+        default_length=solver_run.availability.default_length)
+    constraints.ParseIterator(table_data)
 
-  scheduler = Scheduler(constraints, solver_run)
-  scheduler.Prepare()
-  scheduler.Solve()
-
+    scheduler = Scheduler(constraints, solver_run)
+    scheduler.Prepare()
+    scheduler.Solve()
+    return True
+  except:
+    logger.error(traceback.format_exc())
+    solver_run.state = SolverRun.FAILED
+    solver_run.save()
+    return False
 
 def RunSolve(availability_id, solver_options_id):
   availability = Availability.objects.get(pk=availability_id)

@@ -17,7 +17,8 @@ class Command(BaseCommand):
       os.setgid(33)
       os.setuid(33)
     while True:
-      all_requests = SolverRun.objects.filter(state=SolverRun.IN_QUEUE).order_by('creation_time')
+      all_requests = SolverRun.objects.filter(
+          state=SolverRun.IN_QUEUE).order_by('creation_time')
       if not all_requests:
         if first_sleep:
           print('sleeping')
