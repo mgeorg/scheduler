@@ -111,7 +111,7 @@ Pupil Preference Penalty (values correspond to 2,3,4,5,etc): <input type="text" 
 Instructor Preference Penalty (values correspond to 2,3,4,5,etc): <input type="text" name="instructor_preference_penalty" value="305,620,1290,2600" size=20 /><br>
 <div id="complex_constraints" style='display: table;'>
 <div style='display: table-row;'>
-<div style='display: table-cell;'>Complex Constraints (not implemented): </div>
+<div style='display: table-cell;'>Complex Constraints: </div>
 <div style='display: table-cell;'></div>
 <div style='display: table-cell;'>
 <button onclick="addComplexConstraint('30min M 11:30-13:30');" type="button" >Add Constraint</button>
@@ -123,8 +123,6 @@ Instructor Preference Penalty (values correspond to 2,3,4,5,etc): <input type="t
 <button type="button" onclick="alert('Not Implemented');">Save</button>
 <button type="submit" onclick="document.getElementById('complex_constraints_input').value = getComplexConstraint();">Solve</button><br>
 <br>
-Unimplemented features: Generic Constraints (get me 30min off in this 120min chunk or 30min off in that 60min chunk, etc).<br>
-Unimplemented features: non-30min default session length.<br>
 Unimplemented features: Support penalty for consecutive day lessons.<br>
 Unimplemented features: different penalties on different days.<br>
 Unimplemented features: Save button for this page.<br>

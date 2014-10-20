@@ -312,6 +312,11 @@ class Scheduler:
     self.MakeNoBreakPenalty()
     self.MakeDayOffBonus()
 
+    self.total_correction = 0
+    for name, objective_pair in self.all_objectives.items():
+      (unused_objective, correction) = objective_pair
+      self.total_correction += correction
+
   def MakeVariable(self, var_name):
     x_name = 'x'+str(self.next_var)
     self.x_name[var_name] = x_name
@@ -702,6 +707,7 @@ class Scheduler:
         str(total_time_limit) + ' seconds\n' + self.header))
     p = subprocess.Popen(
         ['clasp', '-t8', '--time-limit='+str(total_time_limit), self.opb_file],
+        bufsize=0,
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
     lines = []
     current_time = time.time()
@@ -718,16 +724,16 @@ class Scheduler:
       if poll_obj.poll(0):
         last_activity = time.time()
         char = p.stdout.read(1).decode('ascii')
+        output.append(char)
         if char == '\n':
           line = ''.join(chars) + '\n'
-          m = re.match(r'^o (-?\d+)', line)
+          m = re.match(r'^o (-?\d+)$', line)
           if m:
             last_save = current_time
-            self.solver_run.score = -int(m.group(1))
+            self.solver_run.score = -int(m.group(1)) + self.total_correction
             self.solver_run.solution = self.solver_run.SOLUTION
             self.solver_run.solver_output = ''.join(output)
             self.solver_run.save()
-          output.append(line)
           chars = []
         else:
           chars.append(char)
@@ -738,14 +744,21 @@ class Scheduler:
           self.solver_run.save()
         time.sleep(.1)
       current_time = time.time()
-    if chars:
-      output.append(''.join(chars))
     if p.poll() == None:
       p.terminate()
+    while p.poll() == None and poll_obj.poll(0):
+      output.append(p.stdout.read(1).decode('ascii'))
+
     (remaining_output, unused_stderr) = p.communicate()
     remaining_output = remaining_output.decode('ascii')
     output.append(remaining_output)
     self.solver_run.solver_output = ''.join(output)
+    self.solver_run.score = None
+    for line in self.solver_run.solver_output.splitlines():
+      m = re.match(r'^\s*c\s+optimization\s*:\s*(-?\d+)\s*$',
+                   line.strip().lower())
+      if m:
+        self.solver_run.score = -int(m.group(1)) + self.total_correction
     self.solver_run.save()
     return self.ParseSolverOutput()
 
@@ -791,15 +804,15 @@ class Scheduler:
         self.solver_run.score = -int(m.group(1))
 
     text_schedule = 'Pupil Session Times.\n'
-    if(self.solver_run.solution in
+    if (self.solver_run.solution in
            [self.solver_run.SOLUTION, self.solver_run.OPTIMAL]):
       self.x_solution = dict()
       var_names = []
       for x in x_names:
         m = re.match('^(-)?(x\d+)$', x)
         assert m
+        self.x_solution[m.group(2)] = not m.group(1)
         if not m.group(1):
-          self.x_solution[m.group(2)] = 1
           var_name = self.our_name[m.group(2)]
           var_names.append(var_name)
 
@@ -822,9 +835,8 @@ class Scheduler:
         else:
           self.busy[slot] = True
       for pupil in range(1, self.spec.num_pupils):
-        text_schedule += (
-            (self.spec.pupil_name[pupil] + ' -- ' +
-             ', '.join(pupil_schedule[pupil])) + '\n')
+        text_schedule += (self.spec.pupil_name[pupil] + ' -- ' +
+                          ', '.join(pupil_schedule[pupil]) + '\n')
       text_schedule += '\n\n'
       text_schedule += 'Instructor Schedule.\n'
       text_schedule += 'For reference the first column is the instructor preference value (i1, i2, i3, etc).\n'
@@ -886,7 +898,7 @@ class Scheduler:
         if x[0] == '~':
           neg = True
           x = x[1:]
-        in_solution = x in self.x_solution
+        in_solution = self.x_solution[x]
         if in_solution == neg:
           apply_penalty = False
           break
@@ -896,14 +908,19 @@ class Scheduler:
 
   def EvaluateAllObjectives(self):
     total_penalty = 0
+    total_correction = 0
     for name, objective_pair in self.all_objectives.items():
       (objective, correction) = objective_pair
-      penalty = self.EvaluateObjective(objective) + correction
+      penalty = self.EvaluateObjective(objective)
       total_penalty += penalty
+      total_correction += correction
       self.solver_run.scheduler_output += (
-          'Penalty ' + str(penalty) + ' for term \"' + name + '\"\n')
+          'Penalty ' + str(penalty + correction) + ' for term \"' +
+          name + '\" (' + str(penalty) + ' + ' + str(correction) + ')\n')
     self.solver_run.scheduler_output += (
-        'Total Penalty ' + str(total_penalty) + '\n')
+        'Total Penalty ' + str(total_penalty + total_correction) +
+        ' for term \"' + name + '\" (' + str(total_penalty) + ' + ' +
+        str(total_correction) + ')\n')
 
 def ExecuteSolverRun(solver_run):
   # Run the solver on the data.
