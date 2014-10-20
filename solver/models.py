@@ -1,4 +1,11 @@
+import ast
+
 from django.db import models
+
+def DictSortedStr(a):
+  return ('{' + ', '.join(
+      [str(k) + ': ' + str(v) for k, v in sorted(a.items())]) + '}')
+
 
 class Availability(models.Model):
   creation_time = models.DateTimeField(auto_now_add=True)
@@ -21,10 +28,11 @@ class SolverOptions(models.Model):
   complex_constraints = models.CharField(max_length=1000)
 
   def __str__(self):
+    d = ast.literal_eval(self.no_break_penalty)
     return ('Arrive Late Bonus: ' + str(self.arrive_late_bonus) +
             '\nLeave Early Bonus: ' + str(self.leave_early_bonus) +
             '\nDay Off Bonus: ' + str(self.day_off_bonus) +
-            '\nNo Break Penalty: ' + str(self.no_break_penalty) +
+            '\nNo Break Penalty: ' + DictSortedStr(d) +
             '\nPupil Preference Penalties: ' + str(self.pupil_preference_penalty_list) +
             '\nInstructor Preference Penalties: ' + str(self.instructor_preference_penalty_list) +
             '\nComplex Constraints: ' + str(self.complex_constraints) +
