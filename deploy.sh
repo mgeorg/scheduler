@@ -26,6 +26,8 @@ if [[ "$PRODUCTION" = "--production" ]]; then
   sudo /etc/init.d/apache2 restart
   sudo chown mgeorg:www-data -R .
   sudo chown mgeorg:www-data /var/log/django/*.log
-  sudo chmod 660 /tmp/django*.log
+  sudo chmod 660 /var/log/django/*.log
+  sudo killall manage.py
+  sudo nohup ./manage.py solve &
 fi
 
