@@ -75,6 +75,7 @@ def start_run(request):
   solver_options = SolverOptions()
 
   availability.csv_data = request.POST['csv_data']
+  availability.default_length = request.POST['default_length']
   availability.save()
 
   solver_options.arrive_late_bonus = request.POST['arrive_late_bonus']
