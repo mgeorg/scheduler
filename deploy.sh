@@ -22,12 +22,16 @@ fi
 if [[ "$PRODUCTION" = "--production" ]]; then
   sudo sed -i -r 's/^\s*PRODUCTION\s*=\s*False\s*;?\s*$/PRODUCTION = True/i' scheduler/settings.py
   sudo ./manage.py collectstatic
-  sudo vi /etc/apache2/sites-enabled/000-default.conf
-  sudo /etc/init.d/apache2 restart
   sudo chown mgeorg:www-data -R .
   sudo chown mgeorg:www-data /var/log/django/*.log
+  sudo find . -type f -exec chmod 660 {} \;
+  sudo find . -type d -exec chmod 770 {} \;
+  sudo chmod 770 deploy.sh manage.py ensure_up.sh scheduler/wsgi.py
   sudo chmod 660 /var/log/django/*.log
+
   sudo killall manage.py
+  sudo vi /etc/apache2/sites-enabled/000-default.conf
+  sudo /etc/init.d/apache2 restart
   sudo nohup ./manage.py solve &
 fi
 
