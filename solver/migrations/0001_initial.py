@@ -13,13 +13,14 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='Availability',
             fields=[
-                ('id', models.AutoField(primary_key=True, auto_created=True, serialize=False, verbose_name='ID')),
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
                 ('creation_time', models.DateTimeField(auto_now_add=True)),
                 ('deleted', models.BooleanField(default=False)),
                 ('locked', models.BooleanField(default=False)),
                 ('slot_times', models.TextField()),
                 ('constraints', models.TextField()),
                 ('csv_data', models.TextField()),
+                ('default_length', models.IntegerField(default=30)),
             ],
             options={
             },
@@ -28,10 +29,10 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='Schedule',
             fields=[
-                ('id', models.AutoField(primary_key=True, auto_created=True, serialize=False, verbose_name='ID')),
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
                 ('creation_time', models.DateTimeField(auto_now_add=True)),
                 ('deleted', models.BooleanField(default=False)),
-                ('score', models.IntegerField(null=True, blank=True)),
+                ('score', models.IntegerField(blank=True, null=True)),
                 ('schedule', models.TextField()),
             ],
             options={
@@ -41,7 +42,7 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='SolverOptions',
             fields=[
-                ('id', models.AutoField(primary_key=True, auto_created=True, serialize=False, verbose_name='ID')),
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
                 ('arrive_late_bonus', models.IntegerField()),
                 ('leave_early_bonus', models.IntegerField()),
                 ('day_off_bonus', models.IntegerField()),
@@ -57,14 +58,14 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='SolverRun',
             fields=[
-                ('id', models.AutoField(primary_key=True, auto_created=True, serialize=False, verbose_name='ID')),
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
                 ('creation_time', models.DateTimeField(auto_now_add=True)),
                 ('solver_version', models.CharField(max_length=10)),
                 ('deleted', models.BooleanField(default=False)),
-                ('score', models.IntegerField(null=True, blank=True)),
+                ('score', models.IntegerField(blank=True, null=True)),
                 ('scheduler_output', models.TextField()),
                 ('solver_output', models.TextField()),
-                ('state', models.CharField(choices=[('n', 'Solver Not Started'), ('q', 'Solver Problem Queued'), ('r', 'Solver Running'), ('d', 'Solver Done')], max_length=1)),
+                ('state', models.CharField(choices=[('q', 'Solver Problem Queued'), ('r', 'Solver Running'), ('d', 'Solver Done'), ('f', 'Solver Failed')], max_length=1)),
                 ('solution', models.CharField(choices=[('n', 'No Solution Found'), ('i', 'Problem is Impossible'), ('s', 'Solution Found'), ('o', 'Optimal Solution Found')], max_length=1)),
                 ('availability', models.ForeignKey(to='solver.Availability')),
                 ('options', models.ForeignKey(to='solver.SolverOptions')),
